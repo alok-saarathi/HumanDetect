@@ -218,3 +218,29 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# HumanDetect project rules (below the standard Python template above)
+# ---------------------------------------------------------------------------
+
+# The template ignores every lib/ folder (Python build output); the Flutter
+# app keeps its Dart source in app/lib/, so re-include it.
+!app/lib/
+
+# Images and model weights: personal data or large files; fetched by scripts
+data/
+approaches/**/models/
+*.onnx
+*.tflite
+*.pt
+*.pth
+*.safetensors
+
+# Flutter test app: built APKs (published as GitHub Releases) and model files
+# (fetched/exported by scripts, see app/README.md)
+app/builds/
+app/assets/models/*
+!app/assets/models/README.md
+
+# OS
+.DS_Store

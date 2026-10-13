@@ -1,0 +1,45 @@
+# Prompt set v0 for approach 02. Tune on the dev split only; save changes as v1, v2, ...
+# Each prompt is wrapped in every template and the text embeddings are averaged.
+version: v0
+templates:
+  - "a photo of {}."
+  - "a blurry photo of {}."
+  - "a low-light photo of {}."
+  - "a close-up photo of {}."
+buckets:
+  genuine:
+    - a person's face
+    - a selfie of a person
+    - a man looking at the camera
+    - a woman looking at the camera
+    - an elderly person looking at the camera
+  no_human:
+    - a wall
+    - a floor
+    - a table
+    - an empty room
+    - a landscape
+    - a dark blurry scene
+    - an everyday object
+    - a document
+  recapture:
+    - a phone screen showing a person's face
+    - a computer monitor showing a photo of a person
+    - a printed photograph of a person held in a hand
+    - a poster of a person
+    - an identity card with a photo
+  screenshot:
+    - a screenshot of a phone screen
+    - a screenshot of a chat app
+  not_real:
+    - a cartoon of a person
+    - a drawing of a face
+    - a mannequin
+    - a statue of a person
+    - a computer-generated face
+# Reason code shown when a fake bucket wins.
+reasons:
+  no_human: NO_HUMAN
+  recapture: RECAPTURE
+  screenshot: SCREENSHOT
+  not_real: NOT_REAL

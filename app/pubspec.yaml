@@ -1,0 +1,35 @@
+name: humandetect_app
+description: "HumanDetect lab: try the Tier 1 approaches for validating customer photos on a real phone."
+publish_to: 'none'
+
+# 0.<tier>.<iteration>: 0.1.x is the Tier 1 lab (approaches 01-05).
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.5
+
+# Every package must be MIT, BSD or Apache: see ../THIRD_PARTY_LICENSES.md.
+dependencies:
+  flutter:
+    sdk: flutter
+  camera: ^0.12.1               # BSD-3
+  tflite_flutter: ^0.12.1       # Apache-2.0 (LiteRT runtime)
+  image: ^4.12.0                # MIT
+  device_info_plus: ^13.3.0     # BSD-3
+  crypto: ^3.0.7                # BSD-3
+  exif: ^3.3.0                  # MIT
+  geolocator_android: ^5.1.1+1  # MIT (Android implementation only, avoids MPL Linux deps)
+  geolocator_platform_interface: ^4.4.0  # MIT
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  # Model files are not in git. Fetch them first (see README.md):
+  #   tool/fetch_models.sh                                   -> MediaPipe models
+  #   approaches/02-zero-shot-clip/export_tinyclip.py        -> TinyCLIP model + prompts
+  assets:
+    - assets/models/
