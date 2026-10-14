@@ -32,6 +32,8 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
   String? _modelError;
   String? _cameraError;
   bool _busy = false;
+  bool _starting = false;
+  bool _sessionStarted = false;
 
   @override
   void initState() {
@@ -54,19 +56,23 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
     super.dispose();
   }
 
+  /// The gallery picker, permission prompts and the notification shade all send the
+  /// app to the background: release the camera, then reopen it on return.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return;
     if (state == AppLifecycleState.inactive) {
+      final controller = _controller;
+      if (controller == null) return;
+      setState(() => _controller = null); // stop showing the preview first
       controller.dispose();
-      _controller = null;
-    } else if (state == AppLifecycleState.resumed) {
+    } else if (state == AppLifecycleState.resumed && _controller == null) {
       _start();
     }
   }
 
   Future<void> _start() async {
+    if (_starting) return;
+    _starting = true;
     try {
       if (_cameras.isEmpty) _cameras = await availableCameras();
       final description = _cameras.firstWhere(
@@ -79,15 +85,29 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
         enableAudio: false,
       );
       await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
       final old = _controller;
+      _cameraError = null;
       _controller = controller;
       await old?.dispose();
-      widget.check.startSession();
+      // One session per photo: start it once here, then after each result. Not on
+      // camera restarts, or 03 would ask for location again after its own prompt.
+      if (!_sessionStarted) {
+        _sessionStarted = true;
+        widget.check.startSession();
+      }
       if (mounted) setState(() {});
     } on CameraException catch (e) {
-      setState(
-        () => _cameraError = 'Camera unavailable: ${e.description ?? e.code}',
-      );
+      if (mounted) {
+        setState(
+          () => _cameraError = 'Camera unavailable: ${e.description ?? e.code}',
+        );
+      }
+    } finally {
+      _starting = false;
     }
   }
 

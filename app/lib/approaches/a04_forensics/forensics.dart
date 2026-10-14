@@ -141,9 +141,10 @@ void fft(Float64List re, Float64List im) {
 /// frequency ring's median, in log units.
 double moireScore(Float32List gray, int w, int h) {
   var n = patchSize;
-  while (n > 64 && n > math.min(w, h)) {
-    n ~/= 2;
+  while (n > 8 && n > math.min(w, h)) {
+    n ~/= 2; // largest power of two that fits, down to 8
   }
+  if (n > math.min(w, h)) return 0; // image too small to analyse
   final x0 = (w - n) ~/ 2, y0 = (h - n) ~/ 2;
   var mean = 0.0;
   for (var y = 0; y < n; y++) {

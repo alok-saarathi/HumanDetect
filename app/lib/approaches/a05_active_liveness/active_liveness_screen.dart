@@ -24,7 +24,8 @@ class ActiveLivenessScreen extends StatefulWidget {
   State<ActiveLivenessScreen> createState() => _ActiveLivenessScreenState();
 }
 
-class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
+class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
+    with WidgetsBindingObserver {
   static const _title = 'Active liveness';
 
   final _settings = LivenessSettings();
@@ -67,6 +68,8 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
   LivenessSession? _session;
   bool _processing = false;
   bool _finishing = false;
+  bool _starting = false;
+  int _sensorOrientation = 0; // of the camera the running check streams from
   FrameObservation? _last;
   Rect? _faceBox;
   int _frames = 0;
@@ -77,13 +80,40 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
     super.dispose();
+  }
+
+  /// Leaving the app mid-check cancels it (a live check can't pause); the camera is
+  /// released and reopened on return.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive) {
+      final controller = _controller;
+      if (controller == null || _finishing) return;
+      final cancelled = _session != null;
+      setState(() {
+        _session = null;
+        _controller = null;
+      });
+      controller.dispose();
+      if (cancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Check cancelled: the app was left.')),
+        );
+      }
+    } else if (state == AppLifecycleState.resumed &&
+        _controller == null &&
+        _cameras.isNotEmpty) {
+      _openCamera();
+    }
   }
 
   Future<void> _init() async {
@@ -101,6 +131,16 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
   }
 
   Future<void> _openCamera() async {
+    if (_starting) return;
+    _starting = true;
+    try {
+      await _openCameraNow();
+    } finally {
+      _starting = false;
+    }
+  }
+
+  Future<void> _openCameraNow() async {
     final description = _cameras.firstWhere(
       (c) => c.lensDirection == _lens,
       orElse: () => _cameras.first,
@@ -112,6 +152,10 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
       imageFormatGroup: ImageFormatGroup.yuv420,
     );
     await controller.initialize();
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
     final old = _controller;
     _controller = controller;
     await old?.dispose();
@@ -130,6 +174,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
     final controller = _controller;
     if (controller == null) return;
     _applyTunables();
+    _sensorOrientation = controller.description.sensorOrientation;
     setState(() {
       _session = LivenessSession(_settings);
       _frames = 0;
@@ -144,11 +189,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
     if (_processing || _finishing || session == null) return;
     _processing = true;
     try {
-      final rgb = yuvToUprightRgb(
-        frame,
-        _controller!.description.sensorOrientation,
-        mirror: _front,
-      );
+      final rgb = yuvToUprightRgb(frame, _sensorOrientation, mirror: _front);
       final faces = _detector!.detect(rgb.rgb, rgb.width, rgb.height)
         ..sort((a, b) => b.area.compareTo(a.area));
       FrameObservation obs;

@@ -99,8 +99,10 @@ def moire(gray: np.ndarray) -> float:
     """Mean of the TOP_PEAKS largest spectrum excesses over the per-radius median (log units)."""
     h, w = gray.shape
     n = PATCH_SIZE
-    while n > 64 and n > min(h, w):
+    while n > 8 and n > min(h, w):  # largest power of two that fits, down to 8
         n //= 2
+    if n > min(h, w):
+        return 0.0  # image too small to analyse
     y0, x0 = (h - n) // 2, (w - n) // 2
     patch = gray[y0 : y0 + n, x0 : x0 + n]
     patch = patch - patch.mean()
