@@ -251,7 +251,7 @@ Full plan: [dataset/README.md](dataset/README.md).
 
 ## 7. Flutter test app
 
-The app lives in [`app/`](app/README.md). **Lab 0.1.1 is built:** APKs are in GitHub Releases, tag `lab-0.1.1`. Gallery upload is accepted on tiles 01, 02 and 04.
+The app lives in [`app/`](app/README.md). **Lab 0.1.2 is built:** APKs are in GitHub Releases, tag `lab-0.1.2`. Gallery upload is accepted on tiles 01, 02 and 04 (since 0.1.1); 0.1.2 reopens the camera after leaving the app (e.g. after the gallery picker) and fixes tile 04 on tiny images.
 - **One app with a grid:** one tile per Tier 1 approach (01–05).
   - Tap a tile: the camera opens with only that approach applied, then a result screen shows the verdict, reasons, photo marks and timings. Tiles 01, 02 and 04 also accept one photo from the Android gallery picker. Tiles 03 and 05 stay camera-only.
   - **Details** on each tile (and ⓘ on each camera screen): how the approach works step by step, its components and licenses, thresholds, what it catches and misses, how it was checked, limitations and code paths.
