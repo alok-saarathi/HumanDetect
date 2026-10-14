@@ -1,5 +1,4 @@
-import 'dart:isolate';
-
+import 'package:flutter/foundation.dart';
 import 'package:exif/exif.dart';
 
 import '../../core/check.dart';
@@ -65,8 +64,12 @@ class ForensicsCheck extends PhotoCheck {
   Future<CheckResult> check(CapturedPhoto photo) async {
     final watch = Stopwatch()..start();
     final image = photo.image;
-    final s = await Isolate.run(() => computeSignals(image));
-    final exif = await readExifFromBytes(photo.jpeg);
+    final s = await compute(computeSignals, image);
+    // The exif package reads JPEG markers. A gallery PNG, WebP, GIF or BMP has
+    // none; missing metadata is shown and, for a gallery file, is not a failure.
+    final exif = _isJpeg(photo.jpeg)
+        ? await readExifFromBytes(photo.jpeg)
+        : <String, IfdTag>{};
     watch.stop();
 
     final make = exif['Image Make']?.printable.trim();
@@ -123,24 +126,39 @@ class ForensicsCheck extends PhotoCheck {
       '≤ ${_moire.display}',
       'MOIRE',
     );
-    signal(
-      'Camera metadata',
-      (make ?? '').isNotEmpty || (model ?? '').isNotEmpty,
-      '${make ?? '-'} / ${model ?? '-'}',
-      'present',
-      'METADATA_MISSING',
-    );
-    if (exifTime != null) {
-      final skew = photo.capturedAt.difference(exifTime).inSeconds.abs();
+    // Make/model and the EXIF clock are a verdict only for an in-app capture.
+    // A gallery file often has neither, and an old timestamp is normal there.
+    if (photo.source == PhotoSource.camera) {
       signal(
-        'EXIF time',
-        skew <= _timeSkew.value,
-        '$skew s from capture',
-        '≤ ${_timeSkew.display} s',
-        'TIME_MISMATCH',
+        'Camera metadata',
+        (make ?? '').isNotEmpty || (model ?? '').isNotEmpty,
+        '${make ?? '-'} / ${model ?? '-'}',
+        'present',
+        'METADATA_MISSING',
       );
+      if (exifTime != null) {
+        final skew = photo.capturedAt.difference(exifTime).inSeconds.abs();
+        signal(
+          'EXIF time',
+          skew <= _timeSkew.value,
+          '$skew s from capture',
+          '≤ ${_timeSkew.display} s',
+          'TIME_MISMATCH',
+        );
+      } else {
+        rows.add(('– EXIF time', 'not present'));
+      }
     } else {
-      rows.add(('– EXIF time', 'not present'));
+      rows.add((
+        '– Camera metadata',
+        '${make ?? '-'} / ${model ?? '-'}  (not applied to gallery)',
+      ));
+      rows.add((
+        '– EXIF time',
+        exifTime == null
+            ? 'not present  (not applied to gallery)'
+            : 'present  (not applied to gallery)',
+      ));
     }
 
     return CheckResult(
@@ -152,10 +170,14 @@ class ForensicsCheck extends PhotoCheck {
     );
   }
 
+  static bool _isJpeg(Uint8List bytes) =>
+      bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8;
+
   static DateTime? _parseExifTime(String? raw) {
     // EXIF format "YYYY:MM:DD HH:MM:SS", local time.
-    final m = RegExp(r'^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})')
-        .firstMatch(raw ?? '');
+    final m = RegExp(
+      r'^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})',
+    ).firstMatch(raw ?? '');
     if (m == null) return null;
     final p = [for (var i = 1; i <= 6; i++) int.parse(m.group(i)!)];
     return DateTime(p[0], p[1], p[2], p[3], p[4], p[5]);

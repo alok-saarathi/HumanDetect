@@ -6,7 +6,7 @@ One app with a grid of tiles, one tile per approach:
 
 It's a **test harness, not the production app**.
 
-**Version 0.1.0** covers Tier 1, the approaches that need no training and run on the phone (plan.md §5).
+**Version 0.1.1** covers Tier 1, the approaches that need no training and run on the phone (plan.md §5). Gallery upload is accepted on tiles 01, 02 and 04.
 
 | Tile | Approach | What runs on the phone | Expected to catch |
 |---|---|---|---|
@@ -20,7 +20,11 @@ It's a **test harness, not the production app**.
 
 ## Install a ready build
 
-Download `humandetect-lab-0.1.0.apk` from the repo's GitHub Releases (tag `lab-0.1.0`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
+Download an APK from the repo's GitHub Releases (tag `lab-0.1.1`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
+
+- `humandetect-lab-0.1.1-arm64-v8a.apk`: almost every phone from the last several years
+- `humandetect-lab-0.1.1-armeabi-v7a.apk`: older 32-bit phones
+- `humandetect-lab-0.1.1-universal.apk`: if unsure
 
 ## Build it yourself
 
@@ -56,9 +60,13 @@ Afterwards `app/assets/models/` holds:
 ### 3. Build and install
 ```
 cd app
-flutter build apk --release --build-name 0.1.0 --build-number 1
-mkdir -p builds && cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.1.0.apk
-adb install -r builds/humandetect-lab-0.1.0.apk      # or send the APK file to the phone
+flutter build apk --release --split-per-abi --build-name 0.1.1 --build-number 2
+mkdir -p builds
+cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk builds/humandetect-lab-0.1.1-arm64-v8a.apk
+cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk builds/humandetect-lab-0.1.1-armeabi-v7a.apk
+flutter build apk --release --build-name 0.1.1 --build-number 2
+cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.1.1-universal.apk
+adb install -r builds/humandetect-lab-0.1.1-arm64-v8a.apk      # or send the APK file to the phone
 ```
 - **Signing:** release builds are signed with the debug key, which is fine for testers, not for the Play Store.
 - **Distribution:** `builds/` is git-ignored. APKs are published as GitHub Releases tagged `lab-<version>`.
@@ -68,16 +76,18 @@ adb install -r builds/humandetect-lab-0.1.0.apk      # or send the APK file to t
 
 - **Home:** 5 tiles. Each shows its number, what it checks, which fake types it should catch, and a **Details** button.
 - **Photo tiles (01–04):**
-  - Camera screen: the back camera by default, with a switch button. There's no gallery picker anywhere in the app.
-  - Press the shutter to see the result: PASS/FAIL, the score, the reasons in plain words, the photo with face boxes and keypoints (01), the details behind the verdict, and timings.
+  - Camera screen: the back camera by default, with a switch button. Tiles 01, 02 and 04 also have a gallery button (Android photo picker, one image, no storage permission). Tile 03 does not: a gallery file cannot pass a live-session check.
+  - Press the shutter, or pick a gallery photo, to see the result: PASS/FAIL, the score, the reasons in plain words, the photo with face boxes and keypoints (01), the details behind the verdict, and timings.
+  - On tile 04, sharpness, glare, contrast and moiré apply to both sources. Camera make/model and the EXIF clock fail only an in-app capture.
   - ⓘ opens the approach's Details page.
   - The tune button opens sliders for every threshold. Changes apply to the next photo, and reset when you leave the screen.
 - **05 Active liveness:**
+  - Camera only. A gallery photo cannot blink or turn, so there is no gallery button.
   - Press **Start**. The app asks for a blink and a head turn to the left or right, in random order.
   - **Back camera:** the person holding the phone reads the instructions out.
   - **Front camera:** the person follows them on screen.
   - A debug line shows eye openness and head turn live, which helps tune thresholds.
-- **Privacy:** photos stay in memory. The camera's temp file is deleted right after capture, and nothing is saved or uploaded.
+- **Privacy:** photos stay in memory. The camera's temp file and the gallery picker's temp file are deleted right after capture, and nothing is saved or uploaded.
 
 ## Code layout
 
@@ -85,8 +95,9 @@ adb install -r builds/humandetect-lab-0.1.0.apk      # or send the APK file to t
 lib/
   main.dart                         portrait-locked MaterialApp
   core/
-    check.dart                      PhotoCheck interface, CheckResult, Tunable, reason texts
-    image_ops.dart                  JPEG decode + EXIF orientation, bilinear resize, box downsample
+    check.dart                      PhotoCheck interface, CheckResult, Tunable, reason texts, photo source
+    image_ops.dart                  JPEG/PNG/WebP/GIF/BMP decode + EXIF orientation, bilinear resize, box downsample
+    gallery_pick.dart               Android photo picker (one image; no storage permission)
     models.dart                     model asset paths, shared interpreters, tensor helpers
   approaches/
     registry.dart                   the grid tiles

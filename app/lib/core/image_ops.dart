@@ -17,9 +17,16 @@ class RgbImage {
 
   /// Decodes a JPEG and applies its EXIF orientation. Slow for big photos: call it
   /// from a background isolate.
-  static RgbImage fromJpeg(Uint8List bytes) {
-    final decoded = img.decodeJpg(bytes);
-    if (decoded == null) throw const FormatException('Not a decodable JPEG');
+  static RgbImage fromJpeg(Uint8List bytes) =>
+      _fromDecoded(img.decodeJpg(bytes));
+
+  /// Decodes a JPEG, PNG, GIF, WebP or BMP and applies EXIF orientation when present.
+  /// Gallery picks use this. HEIC and other formats are transcoded to JPEG first.
+  static RgbImage fromEncoded(Uint8List bytes) =>
+      _fromDecoded(img.decodeImage(bytes));
+
+  static RgbImage _fromDecoded(img.Image? decoded) {
+    if (decoded == null) throw const FormatException('Not a decodable image');
     final upright = img.bakeOrientation(decoded);
     final rgb = upright.convert(numChannels: 3, format: img.Format.uint8);
     return RgbImage(

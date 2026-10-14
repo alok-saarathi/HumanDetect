@@ -6,7 +6,7 @@ Every model, dataset, package and tool must be listed here **before** first use.
 
 **Confirmed** = someone read the license in the **official** source (model card, repo LICENSE file, package metadata) and wrote the date and the source. Until then a row stays `to confirm` and must not ship.
 
-## Shipped in the lab app (0.1.0)
+## Shipped in the lab app (0.1.1)
 
 | Item | Type | License | Used by | Confirmed | Source |
 |---|---|---|---|---|---|

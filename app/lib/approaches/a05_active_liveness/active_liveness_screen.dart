@@ -1,8 +1,7 @@
 import 'dart:io';
-import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/check.dart';
@@ -203,12 +202,13 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
       final jpeg = await file.readAsBytes();
       await File(file.path).delete();
       final watch = Stopwatch()..start();
-      final decoded = await Isolate.run(() => _decode(jpeg));
+      final decoded = await compute(_decode, jpeg);
       watch.stop();
       final photo = CapturedPhoto(
         jpeg: jpeg,
         image: decoded.image,
         capturedAt: capturedAt,
+        source: PhotoSource.camera,
         frontCamera: _front,
         decodeTime: watch.elapsed,
       );
@@ -227,8 +227,9 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not finish: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not finish: $e')));
       }
     } finally {
       if (mounted) setState(() => _session = null);
@@ -400,6 +401,15 @@ class _InstructionBar extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (s == null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'A gallery photo is not used here. This check needs a live blink and head turn.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ],
           if (s != null) ...[
             const SizedBox(height: 8),
             Wrap(

@@ -22,7 +22,7 @@ The original brief and the first plan are kept in [Appendix A](#appendix-a--orig
 |---|---|---|---|
 | F1 | No human at all | wall, table, floor, landscape, blank or dark frame | face detection (01) |
 | F2 | Recaptured human | photo of a printed photo, of a phone or laptop screen, of a poster or ID card | anti-spoof classifier (12), active liveness (05), forensics (04) |
-| F3 | Screenshot or gallery upload | screenshot of a WhatsApp or social photo, old gallery photo | capture controls (03), metadata (04) |
+| F3 | Screenshot or forwarded still | screenshot of a WhatsApp or social photo, a photo of a screen saved to the gallery | zero-shot (02), forensics pixel signals (04). A gallery photo of a real person is a valid input for 01, 02 and 04; it is not a fake by itself. "Taken just now" (03, 05) applies only to an in-app camera capture |
 | F4 | Reused photo | same image submitted for several customers | duplicate search (07) |
 | F5 | Synthetic or non-real human | AI-generated face, cartoon, mannequin, statue | zero-shot (02), fine-tuned classifier (14) |
 | F6 | Wrong person | a real, live person who isn't the customer | **out of scope for now**: needs a face match against the KYC/ID photo |
@@ -251,13 +251,13 @@ Full plan: [dataset/README.md](dataset/README.md).
 
 ## 7. Flutter test app
 
-The app lives in [`app/`](app/README.md). **Lab 0.1.0 is built:** APKs are in GitHub Releases, tag `lab-0.1.0`.
+The app lives in [`app/`](app/README.md). **Lab 0.1.1 is built:** APKs are in GitHub Releases, tag `lab-0.1.1`. Gallery upload is accepted on tiles 01, 02 and 04.
 - **One app with a grid:** one tile per Tier 1 approach (01–05).
-  - Tap a tile: the camera opens with only that approach applied, then a result screen shows the verdict, reasons, photo marks and timings.
+  - Tap a tile: the camera opens with only that approach applied, then a result screen shows the verdict, reasons, photo marks and timings. Tiles 01, 02 and 04 also accept one photo from the Android gallery picker. Tiles 03 and 05 stay camera-only.
   - **Details** on each tile (and ⓘ on each camera screen): how the approach works step by step, its components and licenses, thresholds, what it catches and misses, how it was checked, limitations and code paths.
   - **Thresholds** are adjustable live from each camera screen.
 - **Version** `0.<tier>.<iteration>`: `0.1.x` is the Tier 1 lab. This replaced the earlier plan of one Android flavor per approach.
-- **Tests:** 24 Flutter tests. Dart matches the Python references on synthetic inputs; the liveness state machine and the Details pages are covered too.
+- **Tests:** 28 Flutter tests. Dart matches the Python references on synthetic inputs; the liveness state machine, the gallery-source rules and the Details pages are covered too.
 - **Still to add:** a batch-eval screen (run a check over a folder on the phone, export results CSV) once the eval set exists.
 
 **Open source only:** all Flutter packages must be MIT, BSD or Apache. Unused permissions that plugins merge in (microphone, storage, phone state) are stripped.
@@ -298,6 +298,7 @@ The results CSV format and metrics are in [`evaluation/README.md`](evaluation/RE
 | 2026-10-14 | app | One lab app with a grid of approaches instead of one flavor per approach | easier side-by-side testing on one phone |
 | 2026-10-14 | 02 | Ship TinyCLIP ViT-39M/16 (YFCC15M, MIT, int8 40 MB); keep SigLIP 2 as the server/teacher reference | 8M too weak on the smoke test (AUC 0.90 vs 0.93); SigLIP 2 best (0.98) but 95M params; avoid LAION-trained variants |
 | 2026-10-14 | 01 | BlazeFace short-range with our own decoder; YuNet/Haar deferred | decoder matches mediapipe; extra detectors only if BlazeFace underperforms on our eval set |
+| 2026-10-14 | app | Gallery is a valid still-photo input for 01, 02 and 04. 03 and 05 stay camera-only. 04's EXIF clock is not a hard fail on a gallery file | a real customer photo may be shot in-app or chosen from the gallery; a file cannot prove it was taken just now |
 
 ---
 

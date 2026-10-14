@@ -142,7 +142,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   _Row(
                     'Photo',
                     '${widget.photo.image.width}×${widget.photo.image.height}, '
-                        '${widget.photo.frontCamera ? 'front' : 'back'} camera',
+                        '${widget.photo.originLabel}',
                   ),
                 ],
               ),
@@ -155,7 +155,11 @@ class _ResultScreenState extends State<ResultScreen> {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.replay),
-                  label: const Text('Retake'),
+                  label: Text(
+                    widget.photo.source == PhotoSource.gallery
+                        ? 'Another photo'
+                        : 'Retake',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),

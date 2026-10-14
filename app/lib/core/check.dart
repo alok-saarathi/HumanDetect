@@ -3,12 +3,17 @@ import 'dart:ui';
 
 import 'image_ops.dart';
 
-/// A photo taken in the app's own camera screen (never picked from the gallery).
+/// Where the bytes came from. Content checks (01, 02, 04's image signals) treat both
+/// the same. Provenance checks (03, 04's EXIF clock, 05) only apply to [camera].
+enum PhotoSource { camera, gallery }
+
+/// A photo from the in-app camera or from the gallery picker.
 class CapturedPhoto {
   CapturedPhoto({
     required this.jpeg,
     required this.image,
     required this.capturedAt,
+    required this.source,
     required this.frontCamera,
     required this.decodeTime,
   });
@@ -16,8 +21,16 @@ class CapturedPhoto {
   final Uint8List jpeg;
   final RgbImage image; // decoded and upright
   final DateTime capturedAt;
+  final PhotoSource source;
+
+  /// Lens for an in-app capture. Always false for a gallery file (the lens is unknown).
   final bool frontCamera;
   final Duration decodeTime;
+
+  String get originLabel => switch (source) {
+    PhotoSource.gallery => 'gallery',
+    PhotoSource.camera => frontCamera ? 'front camera' : 'back camera',
+  };
 }
 
 /// Something to draw on top of the photo, in normalized (0..1) image coordinates.
@@ -90,6 +103,10 @@ abstract class PhotoCheck {
   /// Called when the camera is ready, before any capture (03 issues its nonce here).
   void startSession() {}
 
+  /// Gallery files can be judged by this check. Capture-integrity (03) cannot:
+  /// a file already on the phone has no session nonce.
+  bool get acceptsGallery => true;
+
   Future<CheckResult> check(CapturedPhoto photo);
 }
 
@@ -119,6 +136,8 @@ const reasonText = <String, String>{
   'MOIRE': 'Screen pixel or moiré pattern detected',
   'METADATA_MISSING': 'Camera metadata missing',
   'TIME_MISMATCH': 'Photo timestamp does not match capture time',
+  'GALLERY_UPLOAD':
+      'Chosen from the gallery. This check only accepts a photo taken in this session',
   // 05 active liveness
   'FACE_LOST': 'Face left the frame during the challenge',
   'MULTIPLE_FACES': 'More than one face in view',

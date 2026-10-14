@@ -5,7 +5,7 @@
 **What it is:** a product control, not a detector. It's all our own code, and it can run in parallel with the rest of the ladder.
 
 **Idea:** make faking hard before any model runs.
-- Allow in-app camera capture only (`camera` in Flutter, BSD-3), with no gallery picker.
+- This check accepts an in-app camera capture only (`camera` in Flutter, BSD-3). A gallery file cannot satisfy a live session, so the gallery button is not shown on this tile. Content checks 01, 02 and 04 do accept a gallery photo.
 - Stamp each capture with timestamp, GPS, device ID and a server-issued nonce.
 - Have the server reject uploads missing any of these.
 - **Optional:** Google's Play Integrity API to detect modified apps. It's a proprietary service, so using it is a team decision under the ground rules.
@@ -25,7 +25,7 @@
 
 **How it works in the app:**
 1. **Session start:** opening the camera screen creates a random 128-bit nonce and starts a high-accuracy GPS fix (15 s limit). Device details are read via `device_info_plus`.
-2. **Capture source:** photos only come from the in-app camera; the app has no gallery picker anywhere.
+2. **Capture source:** the shutter on this screen. The gallery button is hidden. If a gallery file is submitted anyway, the check fails with `GALLERY_UPLOAD` and does not apply the session, GPS or device rules.
 3. **Checks** (all thresholds adjustable in the app):
 
    | Check | Default limit | Reason code on failure |

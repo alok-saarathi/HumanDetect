@@ -1,19 +1,19 @@
 import 'dart:io';
-import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/check.dart';
+import '../core/gallery_pick.dart';
 import '../core/image_ops.dart';
 import '../approaches/approach_details.dart';
 import 'approach_detail_screen.dart';
 import 'result_screen.dart';
 import 'tunables_sheet.dart';
 
-/// Camera screen shared by the photo-based approaches (01-04). The only way to get a
-/// photo in is to take it here: there is no gallery picker anywhere in the app.
+/// Camera screen shared by the photo-based approaches (01-04).
+/// A photo comes from the shutter, or from the gallery when the check accepts it.
 class PhotoCheckScreen extends StatefulWidget {
   const PhotoCheckScreen({super.key, required this.check});
 
@@ -29,7 +29,8 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
   CameraController? _controller;
   CameraLensDirection _lens = CameraLensDirection.back;
   late final Future<void> _prepared = widget.check.prepare();
-  String? _error;
+  String? _modelError;
+  String? _cameraError;
   bool _busy = false;
 
   @override
@@ -38,7 +39,7 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
     WidgetsBinding.instance.addObserver(this);
     _prepared.catchError(
       (Object e) => setState(
-        () => _error =
+        () => _modelError =
             'Could not load the model: $e\n\n'
             'Model files are fetched separately: see app/README.md.',
       ),
@@ -84,7 +85,9 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
       widget.check.startSession();
       if (mounted) setState(() {});
     } on CameraException catch (e) {
-      setState(() => _error = 'Camera unavailable: ${e.description ?? e.code}');
+      setState(
+        () => _cameraError = 'Camera unavailable: ${e.description ?? e.code}',
+      );
     }
   }
 
@@ -105,38 +108,82 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
       final capturedAt = DateTime.now();
       final jpeg = await file.readAsBytes();
       await File(file.path).delete(); // keep customer photos in memory only
-      final watch = Stopwatch()..start();
-      final decoded = await Isolate.run(() => _decode(jpeg));
-      watch.stop();
-      final photo = CapturedPhoto(
-        jpeg: jpeg,
-        image: decoded.image,
+      await _submit(
+        jpeg,
         capturedAt: capturedAt,
+        source: PhotoSource.camera,
         frontCamera: _lens == CameraLensDirection.front,
-        decodeTime: watch.elapsed,
       );
-      final result = await widget.check.check(photo);
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ResultScreen(
-            title: '${widget.check.id} · ${widget.check.title}',
-            scoreLabel: widget.check.scoreLabel,
-            photo: photo,
-            preview: decoded.preview,
-            result: result,
-          ),
-        ),
-      );
-      widget.check.startSession(); // a new photo is a new session
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Check failed: $e')));
-      }
+      _showFailure(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _pickGallery() async {
+    if (_busy || !widget.check.acceptsGallery) return;
+    setState(() => _busy = true);
+    try {
+      await _prepared;
+      final bytes = await pickGalleryImage();
+      if (bytes == null || !mounted) return;
+      await _submit(
+        bytes,
+        capturedAt: DateTime.now(),
+        source: PhotoSource.gallery,
+        frontCamera: false,
+      );
+    } catch (e) {
+      _showFailure(e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submit(
+    Uint8List bytes, {
+    required DateTime capturedAt,
+    required PhotoSource source,
+    required bool frontCamera,
+  }) async {
+    final watch = Stopwatch()..start();
+    // compute() sends a top-level function plus the bytes. A closure written
+    // inside this method also captures this State, and its Future is not sendable.
+    final decoded = await compute(
+      source == PhotoSource.gallery ? _decodeEncoded : _decodeJpeg,
+      bytes,
+    );
+    watch.stop();
+    final photo = CapturedPhoto(
+      jpeg: bytes,
+      image: decoded.image,
+      capturedAt: capturedAt,
+      source: source,
+      frontCamera: frontCamera,
+      decodeTime: watch.elapsed,
+    );
+    final result = await widget.check.check(photo);
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ResultScreen(
+          title: '${widget.check.id} · ${widget.check.title}',
+          scoreLabel: widget.check.scoreLabel,
+          photo: photo,
+          preview: decoded.preview,
+          result: result,
+        ),
+      ),
+    );
+    widget.check.startSession(); // a new photo is a new session
+  }
+
+  void _showFailure(Object e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Check failed: $e')));
   }
 
   @override
@@ -170,12 +217,12 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
             ),
         ],
       ),
-      body: _error != null
+      body: _modelError != null
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  _error!,
+                  _modelError!,
                   style: const TextStyle(color: Colors.white),
                 ),
               ),
@@ -184,14 +231,35 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
               children: [
                 Expanded(
                   child: Center(
-                    child: controller == null || !controller.value.isInitialized
+                    child: _cameraError != null
+                        ? Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              _cameraError!,
+                              style: const TextStyle(color: Colors.white),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : controller == null || !controller.value.isInitialized
                         ? const CircularProgressIndicator()
                         : CameraPreview(controller),
                   ),
                 ),
+                if (!widget.check.acceptsGallery)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 8, 24, 0),
+                    child: Text(
+                      'Gallery isn\'t offered here. This check only applies to a photo taken in this session.',
+                      style: TextStyle(color: Colors.white70),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 _ShutterBar(
                   busy: _busy,
+                  canCapture:
+                      controller != null && controller.value.isInitialized,
                   onCapture: _capture,
+                  onGallery: widget.check.acceptsGallery ? _pickGallery : null,
                   onSwitch: _cameras.length > 1 ? _switchCamera : null,
                 ),
               ],
@@ -203,12 +271,16 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
 class _ShutterBar extends StatelessWidget {
   const _ShutterBar({
     required this.busy,
+    required this.canCapture,
     required this.onCapture,
+    required this.onGallery,
     required this.onSwitch,
   });
 
   final bool busy;
+  final bool canCapture;
   final VoidCallback onCapture;
+  final VoidCallback? onGallery;
   final VoidCallback? onSwitch;
 
   @override
@@ -220,21 +292,40 @@ class _ShutterBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            const SizedBox(width: 48),
-            SizedBox(
-              width: 76,
-              height: 76,
-              child: busy
-                  ? const Padding(
-                      padding: EdgeInsets.all(18),
-                      child: CircularProgressIndicator(color: Colors.white),
-                    )
-                  : FloatingActionButton.large(
-                      heroTag: 'shutter',
-                      backgroundColor: Colors.white,
-                      onPressed: onCapture,
-                      child: const Icon(Icons.camera_alt, color: Colors.black),
+            onGallery == null
+                ? const SizedBox(width: 48)
+                : IconButton(
+                    tooltip: 'Choose from gallery',
+                    onPressed: busy ? null : onGallery,
+                    icon: const Icon(
+                      Icons.photo_library_outlined,
+                      color: Colors.white,
                     ),
+                  ),
+            SizedBox(
+              width: 96,
+              height: 96,
+              child: IgnorePointer(
+                ignoring: busy,
+                child: FloatingActionButton.large(
+                  // Stay in the tree while busy. Swapping this button out on
+                  // tap deactivates its Hero mid-gesture and Flutter paints
+                  // the red error block.
+                  heroTag: null,
+                  backgroundColor: Colors.white,
+                  onPressed: canCapture ? onCapture : null,
+                  child: busy
+                      ? const SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Icon(Icons.camera_alt, color: Colors.black),
+                ),
+              ),
             ),
             IconButton(
               tooltip: 'Switch camera',
@@ -249,10 +340,16 @@ class _ShutterBar extends StatelessWidget {
 }
 
 /// Runs in a background isolate: JPEG -> upright RGB plus a small preview for display.
-({RgbImage image, ({Uint8List rgba, int width, int height}) preview}) _decode(
-  Uint8List jpeg,
-) {
-  final image = RgbImage.fromJpeg(jpeg);
+({RgbImage image, ({Uint8List rgba, int width, int height}) preview})
+_decodeJpeg(Uint8List jpeg) => _decodeWith(jpeg, RgbImage.fromJpeg);
+
+/// Same as [_decodeJpeg], for gallery files that may be PNG, WebP, GIF or BMP.
+({RgbImage image, ({Uint8List rgba, int width, int height}) preview})
+_decodeEncoded(Uint8List bytes) => _decodeWith(bytes, RgbImage.fromEncoded);
+
+({RgbImage image, ({Uint8List rgba, int width, int height}) preview})
+_decodeWith(Uint8List bytes, RgbImage Function(Uint8List) decode) {
+  final image = decode(bytes);
   var w = 0, h = 0;
   final rgba = image.previewRgba(900, (pw, ph) {
     w = pw;

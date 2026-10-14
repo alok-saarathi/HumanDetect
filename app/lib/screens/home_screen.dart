@@ -18,8 +18,9 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             sliver: SliverToBoxAdapter(
               child: Text(
-                'Tier 1 · no training, runs on this phone. Open an approach, take a photo, '
-                'see what it decides and why.',
+                'Tier 1 · no training, runs on this phone. Open an approach, take a photo '
+                'or pick one from the gallery, and see what it decides and why. '
+                'Capture integrity (03) and active liveness (05) use the camera only.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -101,9 +102,9 @@ class _Tile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       color: scheme.surfaceContainerHigh,
       child: InkWell(
-        onTap: () =>
-            Navigator.of(context)
-                .push(MaterialPageRoute<void>(builder: (_) => tile.open())),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => tile.open())),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

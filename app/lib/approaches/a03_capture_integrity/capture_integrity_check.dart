@@ -46,7 +46,10 @@ class CaptureIntegrityCheck extends PhotoCheck {
   late DateTime _sessionStart;
   Future<Position?>? _position;
   Object? _locationError;
-  final Future<AndroidDeviceInfo> _device = DeviceInfoPlugin().androidInfo;
+  Future<AndroidDeviceInfo>? _device;
+
+  Future<AndroidDeviceInfo> _deviceInfo() =>
+      _device ??= DeviceInfoPlugin().androidInfo;
 
   @override
   String get id => '03';
@@ -59,6 +62,9 @@ class CaptureIntegrityCheck extends PhotoCheck {
 
   @override
   List<Tunable> get tunables => [_maxSessionAge, _maxAccuracy, _maxFixAge];
+
+  @override
+  bool get acceptsGallery => false;
 
   @override
   void startSession() {
@@ -101,8 +107,24 @@ class CaptureIntegrityCheck extends PhotoCheck {
   @override
   Future<CheckResult> check(CapturedPhoto photo) async {
     final watch = Stopwatch()..start();
+    if (photo.source == PhotoSource.gallery) {
+      watch.stop();
+      return CheckResult(
+        passed: false,
+        score: 0,
+        reasons: const ['GALLERY_UPLOAD'],
+        latency: watch.elapsed,
+        details: const [
+          (
+            '✗ Live capture',
+            'Gallery file. The session nonce, freshness and GPS apply only to a photo taken with this screen\'s camera.',
+          ),
+        ],
+      );
+    }
+
     final position = await (_position ?? Future.value(null));
-    final device = await _device;
+    final device = await _deviceInfo();
     final rows = <(String, String)>[];
     final reasons = <String>[];
     var passedCount = 0, total = 0;
@@ -117,11 +139,7 @@ class CaptureIntegrityCheck extends PhotoCheck {
       rows.add(('${ok ? '✓' : '✗'} $name', detail));
     }
 
-    record(
-      'Live capture',
-      true,
-      'Taken in this camera screen; the app has no gallery picker',
-    );
+    record('Live capture', true, 'Taken with this screen\'s camera');
 
     final age = photo.capturedAt.difference(_sessionStart);
     record(

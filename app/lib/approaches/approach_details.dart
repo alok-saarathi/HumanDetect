@@ -55,7 +55,7 @@ const approachDetails = <String, ApproachDetails>{
     title: 'Face detection',
     question: 'Is there one clear, frontal, big-enough face in the photo?',
     steps: [
-      'Take a photo with the in-app camera (1080p, back camera by default). Decode the JPEG and apply its EXIF rotation in a background thread.',
+      'Take a photo with the in-app camera (1080p, back camera by default), or pick one from the gallery. Decode it and apply its EXIF rotation in a background thread. Gallery files may be JPEG, PNG, WebP, GIF or BMP; other formats are converted to JPEG on the phone.',
       'Letterbox the photo into 128 × 128 pixels (keep the aspect ratio, pad with black) and scale pixel values to −1…1.',
       'Run BlazeFace. It scores 896 fixed candidate boxes ("anchors"); each comes with a box and 6 keypoints: both eyes, nose tip, mouth and both ears.',
       'Keep candidates scoring ≥ 0.5, merge overlapping ones (weighted non-maximum suppression, overlap ≥ 0.3) and map them back onto the photo.',
@@ -79,13 +79,13 @@ const approachDetails = <String, ApproachDetails>{
         'camera',
         'package',
         'BSD-3',
-        'In-app camera, the only way to get a photo in.',
+        'In-app camera. Gallery photos come through the Android photo picker instead.',
       ),
       Component(
         'image',
         'package',
         'MIT',
-        'JPEG decoding and EXIF orientation.',
+        'Decodes JPEG, PNG, WebP, GIF and BMP, and applies EXIF orientation.',
       ),
       Component(
         'Anchor decoder + weighted NMS',
@@ -127,9 +127,10 @@ const approachDetails = <String, ApproachDetails>{
   '02': ApproachDetails(
     id: '02',
     title: 'Zero-shot classification',
-    question: 'Does the photo look most like a live person, or like a scene, a screen, a screenshot or something not real?',
+    question:
+        'Does the photo look most like a live person, or like a scene, a screen, a screenshot or something not real?',
     steps: [
-      'Take and decode the photo as in 01.',
+      'Take a photo or pick one from the gallery, and decode it as in 01. The same prompts run on either source.',
       'Resize so the shorter side is 224 pixels (big photos are first averaged down to avoid jagged edges), cut out the 224 × 224 center and scale pixel values to 0…1.',
       'The TinyCLIP image encoder turns the photo into 512 numbers (an "embedding") that describe what it shows.',
       'Compare it with 25 text prompts prepared in advance, each averaged over 4 phrasings ("a photo of …", "a blurry photo of …", "a low-light photo of …", "a close-up photo of …").',
@@ -194,17 +195,23 @@ const approachDetails = <String, ApproachDetails>{
   '03': ApproachDetails(
     id: '03',
     title: 'Capture integrity',
-    question: 'Was this photo taken live, in this app, just now, on a real phone, at a real location?',
+    question:
+        'Was this photo taken live, in this app, just now, on a real phone, at a real location?',
     steps: [
       'Opening the camera starts a session: a random one-time code (nonce) and a start time. A GPS fix and device details are fetched in the background.',
-      'The photo can only come from this camera screen; the app has no gallery picker anywhere.',
+      'The photo has to come from this camera screen. A gallery file has no session, so the gallery button is not shown and a gallery file cannot pass.',
       'Check the photo was taken soon after the session started (≤ 120 s).',
       'Check the phone is real hardware, not an emulator.',
       'Check the location: available, precise (≤ 50 m), recent (≤ 120 s) and not faked by a mock-location app.',
       'Build a receipt: SHA-256 fingerprint of the photo, then an HMAC signature over nonce + fingerprint + time + location + device. A server would store and verify this.',
     ],
     components: [
-      Component('camera', 'package', 'BSD-3', 'In-app capture only.'),
+      Component(
+        'camera',
+        'package',
+        'BSD-3',
+        'In-app capture only. Gallery files are rejected.',
+      ),
       Component(
         'geolocator_android',
         'package',
@@ -236,7 +243,7 @@ const approachDetails = <String, ApproachDetails>{
       ('Max location age', '120 s'),
     ],
     catches: [
-      'F3: gallery uploads and screenshots (impossible in this flow)',
+      'Gallery files, screenshots and any photo not taken in this session',
       'Makes every photo traceable to a time, place and device',
     ],
     misses: [
@@ -258,13 +265,14 @@ const approachDetails = <String, ApproachDetails>{
   '04': ApproachDetails(
     id: '04',
     title: 'Recapture forensics',
-    question: 'Does the photo carry traces of being a photo of a screen or print, or of not coming from a camera?',
+    question:
+        'Does the photo carry traces of being a photo of a screen or print, or of not coming from a camera?',
     steps: [
-      'Take and decode the photo, then convert it to brightness only (grayscale). Runs in a background thread.',
+      'Take a photo or pick one from the gallery, decode it, then convert it to brightness only (grayscale). Runs in a background thread.',
       'On a small copy (long side 512): sharpness = how much fine detail there is (variance of the Laplacian); glare = share of near-white pixels; contrast = spread between the darkest and brightest 1 %.',
       'Moiré: take a full-resolution 512 × 512 patch from the center, compute its 2-D frequency spectrum (FFT), and measure how far the 8 strongest peaks stand above the typical level at their frequency. A screen\'s pixel grid and halftone print dots make sharp peaks; normal scenes don\'t.',
-      'Metadata: camera make/model present in EXIF, and the EXIF time within 10 min of the capture time.',
-      'PASS only if every signal is within its limit.',
+      'For an in-app camera photo only: camera make/model present in EXIF, and the EXIF time within 10 min of the shutter press. On a gallery file those two are shown and do not fail the check, because a saved photo often has no camera EXIF and an old timestamp.',
+      'PASS only if every signal that applies is within its limit.',
     ],
     components: [
       Component(
@@ -291,7 +299,7 @@ const approachDetails = <String, ApproachDetails>{
     catches: [
       'Close-up photos of screens where the pixel grid shows (simulated: moiré 4.9–6.3 vs ≤ 3.2 for normal photos)',
       'Blurry or washed-out recaptures',
-      'Files without camera metadata (F3, when used on uploads)',
+      'In-app photos with no camera metadata, or an EXIF time far from the shutter press',
     ],
     misses: [
       'Screens photographed from further away (grid not visible) and good prints.',
@@ -313,7 +321,8 @@ const approachDetails = <String, ApproachDetails>{
   '05': ApproachDetails(
     id: '05',
     title: 'Active liveness',
-    question: 'Can the person in front of the camera blink and turn their head when asked?',
+    question:
+        'Can the person in front of the camera blink and turn their head when asked?',
     steps: [
       'Stream live video (720 × 480 frames). Each frame is turned upright using the camera\'s sensor orientation, and mirrored for the front camera.',
       'BlazeFace (as in 01) finds the largest face.',

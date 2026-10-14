@@ -36,7 +36,7 @@
 | Glare | share of pixels with luma ≥ 250 | ≤ 5 % | `GLARE` |
 | Contrast | 99th − 1st luma percentile | ≥ 60 | `LOW_CONTRAST` |
 | Moiré | 512² full-resolution center patch, Hann window, 2-D FFT, log magnitude; mean of the 8 largest excesses over each frequency ring's median (band 0.15–0.95 of Nyquist) | ≤ 3.5 | `MOIRE` |
-| EXIF | camera make/model present; `DateTimeOriginal` within 600 s of capture | — | `METADATA_MISSING`, `TIME_MISMATCH` |
+| EXIF | camera make/model present; `DateTimeOriginal` within 600 s of capture. A hard check for an in-app camera photo only. On a gallery file the values are shown and do not fail the check. | — | `METADATA_MISSING`, `TIME_MISMATCH` |
 
 **Findings** (about 25 public images plus simulated recaptures):
 - **Moiré on normal photos:** 1.3–3.2. The high end is regular structures: rows of desks, wood grain.
