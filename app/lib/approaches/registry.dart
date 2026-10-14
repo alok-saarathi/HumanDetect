@@ -7,6 +7,7 @@ import 'a02_zero_shot/zero_shot_check.dart';
 import 'a03_capture_integrity/capture_integrity_check.dart';
 import 'a04_forensics/forensics_check.dart';
 import 'a05_active_liveness/active_liveness_screen.dart';
+import 'server/server_check.dart';
 
 /// One tile on the home grid.
 class ApproachTile {
@@ -72,5 +73,41 @@ final tier1 = <ApproachTile>[
     catches: ['F2 prints/screens', 'F1', 'F3'],
     icon: Icons.visibility,
     open: ActiveLivenessScreen.new,
+  ),
+];
+
+/// Tier 2: no training, runs on the HumanDetect server (server/README.md).
+final tier2 = <ApproachTile>[
+  ApproachTile(
+    id: '06',
+    title: 'Zero-shot detection',
+    summary: 'Face found, and not on a screen or a painting?',
+    catches: ['F1', 'F2 partly', 'F5 partly'],
+    icon: Icons.travel_explore,
+    open: () => _photo(serverChecks['06']!),
+  ),
+  ApproachTile(
+    id: '07',
+    title: 'Duplicate detection',
+    summary: 'Has this photo been submitted before?',
+    catches: ['F4 reused photo'],
+    icon: Icons.content_copy,
+    open: () => _photo(serverChecks['07']!),
+  ),
+  ApproachTile(
+    id: '08',
+    title: 'Deep detectors',
+    summary: 'One clear person, not on a screen?',
+    catches: ['F1', 'F2 partly'],
+    icon: Icons.person_search,
+    open: () => _photo(serverChecks['08']!),
+  ),
+  ApproachTile(
+    id: '09',
+    title: 'Open VLM judge',
+    summary: 'A small open model answers: what is this?',
+    catches: ['F1', 'F2', 'F5'],
+    icon: Icons.psychology_alt,
+    open: () => _photo(serverChecks['09']!),
   ),
 ];

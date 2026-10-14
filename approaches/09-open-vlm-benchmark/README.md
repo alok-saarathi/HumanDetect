@@ -14,3 +14,18 @@
 - **Labeler:** labels images for the Tier 3 training approaches.
 
 **Not a production candidate:** too heavy for a per-upload check.
+
+## Implementation (server 0.2.0)
+
+**Status:** Stage 2 · Prototype, in the Tier 2 server and the app (tile 09).
+
+Code: `vlm_judge.py` (class `VlmJudge`): SmolVLM2-500M, pinned commit, bf16 on the Apple GPU. A five-option multiple-choice question (real person / person on a screen / printed photo or ID / painting, statue, mannequin, cartoon / no person). The score is the model's probability of "A", read from the logits, not from generated text.
+
+**Findings** (26-image smoke test, not an evaluation): **23/26 correct, ROC-AUC 0.92**, the best of Tier 2.
+- All scenes, all 8 recaptures and all 6 not-real photos rejected, each with a sensible reason.
+- It is also cautious about real people: 3 of 7 genuine photos rejected (person in front of a TV, crowded selfie, stylised portrait).
+- 0.5–4 s per photo; the model is about 1 GB.
+
+**Use:** accuracy ceiling to compare other approaches against, and a labeler for the training approaches (10–14). Not a production check.
+
+**License flag:** the processor needs `num2words` (LGPL). See THIRD_PARTY_LICENSES.md.

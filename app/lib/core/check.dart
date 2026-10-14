@@ -136,8 +136,14 @@ const reasonText = <String, String>{
   'MOIRE': 'Screen pixel or moiré pattern detected',
   'METADATA_MISSING': 'Camera metadata missing',
   'TIME_MISMATCH': 'Photo timestamp does not match capture time',
-  'GALLERY_UPLOAD':
-      'Chosen from the gallery. This check only accepts a photo taken in this session',
+  'GALLERY_UPLOAD': 'Chosen from the gallery. This check only accepts a photo taken in this session',
+  // 07 duplicates (server)
+  'DUPLICATE': 'Same photo as an earlier submission',
+  'RESUBMITTED': 'Looks like a re-shot or edited copy of an earlier photo',
+  // 08 deep detectors (server)
+  'NO_PERSON': 'No person found',
+  'PERSON_TOO_SMALL': 'Person too small: move closer',
+  'NO_DOMINANT_PERSON': 'More than one person of similar size',
   // 05 active liveness
   'FACE_LOST': 'Face left the frame during the challenge',
   'MULTIPLE_FACES': 'More than one face in view',

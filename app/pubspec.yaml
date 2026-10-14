@@ -2,8 +2,8 @@ name: humandetect_app
 description: "HumanDetect lab: try the Tier 1 approaches for validating customer photos on a real phone."
 publish_to: 'none'
 
-# 0.<tier>.<iteration>: 0.1.x is the Tier 1 lab (approaches 01-05).
-version: 0.1.2+3
+# 0.<tier>.<iteration>: 0.1.x is the Tier 1 lab (01-05); 0.2.x adds Tier 2 (06-09, server).
+version: 0.2.0+4
 
 environment:
   sdk: ^3.13.5

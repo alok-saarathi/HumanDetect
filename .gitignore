@@ -242,5 +242,8 @@ app/builds/
 app/assets/models/*
 !app/assets/models/README.md
 
+# Tier 2 server: fingerprints of customer photos (approach 07)
+server/data/
+
 # OS
 .DS_Store

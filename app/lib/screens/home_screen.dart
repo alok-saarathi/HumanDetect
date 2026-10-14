@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../approaches/approach_details.dart';
 import '../approaches/registry.dart';
+import '../approaches/server/server_check.dart';
 import 'approach_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -30,6 +31,32 @@ class HomeScreen extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             sliver: SliverToBoxAdapter(child: _Grid(tier1)),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            sliver: SliverToBoxAdapter(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tier 2 · runs on the HumanDetect server',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => showServerDialog(context),
+                    icon: const Icon(Icons.dns_outlined, size: 18),
+                    label: const Text('Server'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            sliver: SliverToBoxAdapter(child: _Grid(tier2)),
           ),
           SliverPadding(
             padding: const EdgeInsets.all(16),
@@ -102,9 +129,9 @@ class _Tile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       color: scheme.surfaceContainerHigh,
       child: InkWell(
-        onTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => tile.open())),
+        onTap: () =>
+            Navigator.of(context)
+                .push(MaterialPageRoute<void>(builder: (_) => tile.open())),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -194,4 +221,75 @@ class _Tile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Address and token of the server the Tier 2 tiles talk to, with a connection test.
+Future<void> showServerDialog(BuildContext context) {
+  final url = TextEditingController(text: ServerSettings.url);
+  final token = TextEditingController(text: ServerSettings.token);
+  String? status;
+  var testing = false;
+  return showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: const Text('HumanDetect server'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Photos are sent here for Tier 2 checks and judged in memory. '
+              'Start the server with server/README.md, then use the computer\'s address.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: url,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'Address',
+                hintText: 'http://192.168.1.10:8000',
+              ),
+            ),
+            TextField(
+              controller: token,
+              decoration: const InputDecoration(
+                labelText: 'Token (only if the server sets one)',
+              ),
+            ),
+            if (status != null) ...[const SizedBox(height: 12), Text(status!)],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: testing
+                ? null
+                : () async {
+                    ServerSettings.url = url.text;
+                    ServerSettings.token = token.text;
+                    setState(() {
+                      testing = true;
+                      status = 'Testing…';
+                    });
+                    try {
+                      status = await pingServer();
+                    } catch (e) {
+                      status = '$e';
+                    }
+                    setState(() => testing = false);
+                  },
+            child: const Text('Test'),
+          ),
+          FilledButton(
+            onPressed: () {
+              ServerSettings.url = url.text;
+              ServerSettings.token = token.text;
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

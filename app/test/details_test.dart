@@ -7,7 +7,7 @@ import 'package:humandetect_app/screens/home_screen.dart';
 
 void main() {
   test('every tile has a details page', () {
-    for (final tile in tier1) {
+    for (final tile in [...tier1, ...tier2]) {
       final d = approachDetails[tile.id];
       expect(d, isNotNull, reason: 'tile ${tile.id}');
       expect(d!.steps, isNotEmpty);

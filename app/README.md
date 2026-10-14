@@ -6,7 +6,9 @@ One app with a grid of tiles, one tile per approach:
 
 It's a **test harness, not the production app**.
 
-**Version 0.1.2** covers Tier 1, the approaches that need no training and run on the phone (plan.md §5). Gallery upload is accepted on tiles 01, 02 and 04.
+**Version 0.2.0** has two sections:
+- **Tier 1 (01–05):** no training, runs on the phone. Gallery upload is accepted on tiles 01, 02 and 04.
+- **Tier 2 (06–09):** the photo is sent to the HumanDetect server ([`../server/README.md`](../server/README.md)), which runs models too big for a phone. Press **Server** on the home screen to set its address. Needs the server running and the phone on the same network.
 
 | Tile | Approach | What runs on the phone | Expected to catch |
 |---|---|---|---|
@@ -70,11 +72,11 @@ adb install -r builds/humandetect-lab-0.1.2-arm64-v8a.apk      # or send the APK
 ```
 - **Signing:** release builds are signed with the debug key, which is fine for testers, not for the Play Store.
 - **Distribution:** `builds/` is git-ignored. APKs are published as GitHub Releases tagged `lab-<version>`.
-- **Version numbers:** `0.<tier>.<iteration>`, so `0.1.x` is the Tier 1 lab and `1.0.0` is reserved for a production candidate.
+- **Version numbers:** `0.<tier>.<iteration>`, so `0.1.x` is the Tier 1 lab and `0.2.x` adds Tier 2 and `1.0.0` is reserved for a production candidate.
 
 ## Using it
 
-- **Home:** 5 tiles. Each shows its number, what it checks, which fake types it should catch, and a **Details** button.
+- **Home:** 9 tiles (5 on-device, 4 server). Each shows its number, what it checks, which fake types it should catch, and a **Details** button.
 - **Photo tiles (01–04):**
   - Camera screen: the back camera by default, with a switch button. Tiles 01, 02 and 04 also have a gallery button (Android photo picker, one image, no storage permission). Tile 03 does not: a gallery file cannot pass a live-session check.
   - Press the shutter, or pick a gallery photo, to see the result: PASS/FAIL, the score, the reasons in plain words, the photo with face boxes and keypoints (01), the details behind the verdict, and timings.

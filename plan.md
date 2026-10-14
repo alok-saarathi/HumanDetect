@@ -67,7 +67,8 @@ HumanDetect/
 ├── approaches/
 │   ├── 01-face-detection/       one folder per approach: code, notebooks, results, findings
 │   └── …                        through 15-hybrid-pipeline/
-├── app/                         Flutter test app: one build flavor per approach
+├── app/                         Flutter lab app: a tile per approach
+├── server/                      FastAPI service for the Tier 2 approaches (06-09)
 └── data/                        the images themselves (git-ignored)
 ```
 
@@ -131,10 +132,10 @@ Full plan: [dataset/README.md](dataset/README.md).
 - [ ] **05 · Active liveness (blink, head turn)** · `Stage 2 · Prototype ✓ in lab app 0.1.0` · [folder](approaches/05-active-liveness/) · next: phone test, field trial
 
 **Tier 2: no training, runs on a server**
-- [ ] **06 · Zero-shot open-vocabulary detection (OWLv2, Grounding DINO)** · `Stage 0 · Not started` · [folder](approaches/06-zero-shot-detection/)
-- [ ] **07 · Duplicate and reuse detection (pHash, DINOv2)** · `Stage 0 · Not started` · [folder](approaches/07-duplicate-detection/)
-- [ ] **08 · Open deep detectors (RT-DETR, D-FINE, RF-DETR)** · `Stage 0 · Not started` · [folder](approaches/08-deep-detectors/)
-- [ ] **09 · Self-hosted open VLM as benchmark and labeler** · `Stage 0 · Not started` · [folder](approaches/09-open-vlm-benchmark/)
+- [ ] **06 · Zero-shot open-vocabulary detection (OWLv2)** · `Stage 2 · Prototype ✓ server + tile 06` · [folder](approaches/06-zero-shot-detection/) · weak alone (AUC 0.67 on smoke set); Grounding DINO dropped
+- [ ] **07 · Duplicate and reuse detection (pHash, DINOv2)** · `Stage 2 · Prototype ✓ server + tile 07` · [folder](approaches/07-duplicate-detection/) · next: retention policy, real resubmissions
+- [ ] **08 · Open deep detectors (RT-DETRv2, D-FINE)** · `Stage 2 · Prototype ✓ server + tile 08` · [folder](approaches/08-deep-detectors/) · good person detector, blind to prints/screens
+- [ ] **09 · Self-hosted open VLM as benchmark and labeler (SmolVLM2-500M)** · `Stage 2 · Prototype ✓ server + tile 09` · [folder](approaches/09-open-vlm-benchmark/) · best on smoke set (AUC 0.92); `num2words` LGPL needs a decision
 
 **Tier 3: dataset-based, trained on our own data (toughest)**
 - [ ] **10 · Frozen embeddings + linear probe** · `Stage 0 · Not started` · [folder](approaches/10-embedding-probe/)
@@ -251,7 +252,7 @@ Full plan: [dataset/README.md](dataset/README.md).
 
 ## 7. Flutter test app
 
-The app lives in [`app/`](app/README.md). **Lab 0.1.2 is built:** APKs are in GitHub Releases, tag `lab-0.1.2`. Gallery upload is accepted on tiles 01, 02 and 04 (since 0.1.1); 0.1.2 reopens the camera after leaving the app (e.g. after the gallery picker) and fixes tile 04 on tiny images.
+The app lives in [`app/`](app/README.md). **Lab 0.2.0 is built locally** (not yet released; 0.1.2 is the last release, tag `lab-0.1.2`): adds a Tier 2 section whose tiles (06–09) send the photo to the FastAPI server in [`server/`](server/README.md). Gallery upload is accepted on tiles 01, 02 and 04 (since 0.1.1); 0.1.2 reopens the camera after leaving the app (e.g. after the gallery picker) and fixes tile 04 on tiny images.
 - **One app with a grid:** one tile per Tier 1 approach (01–05).
   - Tap a tile: the camera opens with only that approach applied, then a result screen shows the verdict, reasons, photo marks and timings. Tiles 01, 02 and 04 also accept one photo from the Android gallery picker. Tiles 03 and 05 stay camera-only.
   - **Details** on each tile (and ⓘ on each camera screen): how the approach works step by step, its components and licenses, thresholds, what it catches and misses, how it was checked, limitations and code paths.
@@ -297,6 +298,8 @@ The results CSV format and metrics are in [`evaluation/README.md`](evaluation/RE
 | 2026-10-14 | all | Open, license-clean components only; ML Kit, MobileCLIP, pretrained anti-spoof models and non-commercial datasets excluded | repo is public; no license risk |
 | 2026-10-14 | app | One lab app with a grid of approaches instead of one flavor per approach | easier side-by-side testing on one phone |
 | 2026-10-14 | 02 | Ship TinyCLIP ViT-39M/16 (YFCC15M, MIT, int8 40 MB); keep SigLIP 2 as the server/teacher reference | 8M too weak on the smoke test (AUC 0.90 vs 0.93); SigLIP 2 best (0.98) but 95M params; avoid LAION-trained variants |
+| 2026-10-14 | 06–09 | Tier 2 runs on one FastAPI server (D3); apps send photos over the LAN, judged in memory | models too big for phones; photos stay on our own machine |
+| 2026-10-14 | 09 | SmolVLM2-500M kept as benchmark/labeler only; `num2words` (LGPL) flagged | server-side, not shipped; awaiting decision |
 | 2026-10-14 | 01 | BlazeFace short-range with our own decoder; YuNet/Haar deferred | decoder matches mediapipe; extra detectors only if BlazeFace underperforms on our eval set |
 | 2026-10-14 | app | Gallery is a valid still-photo input for 01, 02 and 04. 03 and 05 stay camera-only. 04's EXIF clock is not a hard fail on a gallery file | a real customer photo may be shot in-app or chosen from the gallery; a file cannot prove it was taken just now |
 

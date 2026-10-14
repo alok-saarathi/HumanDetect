@@ -37,6 +37,15 @@ Every model, dataset, package and tool must be listed here **before** first use.
 | `transformers` 5.19, `huggingface-hub`, `safetensors`, `tokenizers` | package | Apache-2.0 | 02 | 2026-10-14 | package metadata |
 | `opencv-python-headless` 5.0 | package | Apache-2.0 | reference code | 2026-10-14 | package metadata |
 | numpy, Pillow, PyYAML | package | BSD-3 (+ permissive) / MIT-CMU / MIT | all | 2026-10-14 | package metadata |
+| `google/owlv2-base-patch16-ensemble`, `IDEA-Research/grounding-dino-tiny` | model | Apache-2.0 | 06 (server) | 2026-10-14 | Hugging Face model card metadata; pinned commits in `approaches/06-zero-shot-detection/zero_shot_detection.py` |
+| `facebook/dinov2-small` | model | Apache-2.0 | 07 (server) | 2026-10-14 | Hugging Face model card metadata |
+| `PekingU/rtdetr_v2_r18vd`, `ustc-community/dfine-small-coco` | model | Apache-2.0 | 08 (server) | 2026-10-14 | Hugging Face model card metadata; pure `transformers`, no remote code |
+| `HuggingFaceTB/SmolVLM2-500M-Video-Instruct` | model | Apache-2.0 | 09 (server) | 2026-10-14 | Hugging Face model card metadata |
+| `fastapi` 0.143 (MIT), `uvicorn` 0.54 (BSD-3), `starlette` (BSD-3), `pydantic` (MIT), `anyio` (MIT) | server package | permissive | server | 2026-10-14 | package metadata |
+| `imagehash` 4.3.2 (BSD-2), `PyWavelets` (MIT/BSD-3), `scipy` (BSD) | package | permissive | 07 | 2026-10-14 | package metadata |
+| `torchvision` 0.28 | package | BSD | 09 | 2026-10-14 | package metadata |
+| `httpx`, `pytest` | test package | BSD-3 / MIT | server tests | to confirm | dev only |
+| **`num2words` 0.5.14** | package | **LGPL** | 09 (server only) | 2026-10-14 | **Needs a decision.** SmolVLM's processor imports it. LGPL, a weak copyleft, used unmodified as a library on the server; never shipped in the app. Our rules say no copyleft in anything we ship, so either accept it for server-side use or drop approach 09 / stub the import |
 | SigLIP 2 base (`google/siglip2-base-patch32-256`, `-patch16-224`) | model | Apache-2.0 | 02 comparison only | 2026-10-14 | Hugging Face model card metadata |
 | TinyCLIP ViT-8M/16 YFCC, ViT-40M/32 and ViT-61M/32 LAION | model | MIT | 02 comparison only | 2026-10-14 | Hugging Face model card metadata |
 | Wikimedia Commons test images (CC0 / public domain only) | data | CC0 / PD | smoke tests, scratch only, not committed | per file | license field read from the Commons API for each file |
@@ -47,10 +56,7 @@ Every model, dataset, package and tool must be listed here **before** first use.
 |---|---|---|---|---|---|
 | YuNet | model | MIT | 01 (deferred) | to confirm | LICENSE in opencv_zoo `models/face_detection_yunet` |
 | OpenAI CLIP ViT-B/32 | model | MIT | reference only, never shipped | to confirm | model card says deployed use is out of scope |
-| OWLv2, Grounding DINO | model | Apache-2.0 | 06, 13 | to confirm | Hugging Face model cards |
-| DINOv2 small | model | Apache-2.0 | 07, 10, 11 | to confirm | Hugging Face model card |
-| RT-DETR / D-FINE / RF-DETR; EfficientDet-Lite, SSD-MobileNet | model | Apache-2.0 | 08 | to confirm | official repos |
-| SmolVLM2; Florence-2; Qwen2.5-VL-7B-Instruct | model | Apache-2.0; MIT; Apache-2.0 | 09 | to confirm | **that Qwen size only**: other sizes differ |
+| RF-DETR; EfficientDet-Lite, SSD-MobileNet; Florence-2; Qwen2.5-VL-7B-Instruct | model | Apache-2.0 / MIT | 08, 09 (not used yet) | to confirm | **that Qwen size only**: other sizes differ |
 | `timm` + weights | package / model | Apache-2.0 (code) | 12, 14 | to confirm | check each weight file's license tag |
 | scikit-learn, `imagehash` (BSD-2), FAISS (MIT), FastAPI (MIT), ONNX Runtime (MIT), Label Studio (Apache-2.0) | package / tool | permissive | various | to confirm | |
 | `autodistill` core | package | Apache-2.0 | 13 | to confirm | its YOLO student plugins are AGPL: don't use them |

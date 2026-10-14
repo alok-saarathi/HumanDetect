@@ -127,8 +127,7 @@ const approachDetails = <String, ApproachDetails>{
   '02': ApproachDetails(
     id: '02',
     title: 'Zero-shot classification',
-    question:
-        'Does the photo look most like a live person, or like a scene, a screen, a screenshot or something not real?',
+    question: 'Does the photo look most like a live person, or like a scene, a screen, a screenshot or something not real?',
     steps: [
       'Take a photo or pick one from the gallery, and decode it as in 01. The same prompts run on either source.',
       'Resize so the shorter side is 224 pixels (big photos are first averaged down to avoid jagged edges), cut out the 224 × 224 center and scale pixel values to 0…1.',
@@ -195,8 +194,7 @@ const approachDetails = <String, ApproachDetails>{
   '03': ApproachDetails(
     id: '03',
     title: 'Capture integrity',
-    question:
-        'Was this photo taken live, in this app, just now, on a real phone, at a real location?',
+    question: 'Was this photo taken live, in this app, just now, on a real phone, at a real location?',
     steps: [
       'Opening the camera starts a session: a random one-time code (nonce) and a start time. A GPS fix and device details are fetched in the background.',
       'The photo has to come from this camera screen. A gallery file has no session, so the gallery button is not shown and a gallery file cannot pass.',
@@ -265,8 +263,7 @@ const approachDetails = <String, ApproachDetails>{
   '04': ApproachDetails(
     id: '04',
     title: 'Recapture forensics',
-    question:
-        'Does the photo carry traces of being a photo of a screen or print, or of not coming from a camera?',
+    question: 'Does the photo carry traces of being a photo of a screen or print, or of not coming from a camera?',
     steps: [
       'Take a photo or pick one from the gallery, decode it, then convert it to brightness only (grayscale). Runs in a background thread.',
       'On a small copy (long side 512): sharpness = how much fine detail there is (variance of the Laplacian); glare = share of near-white pixels; contrast = spread between the darkest and brightest 1 %.',
@@ -321,8 +318,7 @@ const approachDetails = <String, ApproachDetails>{
   '05': ApproachDetails(
     id: '05',
     title: 'Active liveness',
-    question:
-        'Can the person in front of the camera blink and turn their head when asked?',
+    question: 'Can the person in front of the camera blink and turn their head when asked?',
     steps: [
       'Stream live video (720 × 480 frames). Each frame is turned upright using the camera\'s sensor orientation, and mirrored for the front camera.',
       'BlazeFace (as in 01) finds the largest face.',
@@ -390,6 +386,251 @@ const approachDetails = <String, ApproachDetails>{
     code: [
       'app/lib/approaches/a05_active_liveness/',
       'approaches/05-active-liveness/',
+    ],
+  ),
+  '06': ApproachDetails(
+    id: '06',
+    title: 'Zero-shot detection',
+    question: 'Is there a human face, and is it not framed by a screen or print, or a painting, statue or mannequin?',
+    steps: [
+      'The phone sends the photo to the HumanDetect server over the local network. The server judges it in memory and does not store it.',
+      'OWLv2 takes text prompts and returns boxes with scores: "a human face"; screens and prints ("a phone screen", "a computer monitor", "a television", "a printed photograph", "a poster", "an identity card"); not-real things ("a painting", "a statue", "a mannequin", "a cartoon").',
+      'NO_FACE if no face box scores ≥ 0.15; FACE_TOO_SMALL if it covers < 1 % of the photo.',
+      'RECAPTURE (or NOT_REAL) if a screen / print (or painting / statue …) box scoring ≥ 0.35 is clearly larger than the face and holds ≥ 80 % of it. A "printed photograph" box covering the whole frame is ignored: it only says the image is a photo.',
+    ],
+    components: [
+      Component(
+        'OWLv2 base/16 ensemble',
+        'model',
+        'Apache-2.0',
+        'Open-vocabulary detector by Google (google/owlv2-base-patch16-ensemble, pinned commit). Runs on the server GPU/CPU.',
+      ),
+      Component(
+        'Grounding DINO tiny',
+        'model',
+        'Apache-2.0',
+        'Compared on the laptop only; not offered in the app (see limitations).',
+      ),
+      Component(
+        'FastAPI + Uvicorn',
+        'package',
+        'MIT / BSD-3',
+        'The HTTP service all Tier 2 tiles call.',
+      ),
+      Component(
+        'transformers, PyTorch',
+        'package',
+        'Apache-2.0 / BSD',
+        'Model loading and inference.',
+      ),
+      Component(
+        'Box rules',
+        'own code',
+        'this repo',
+        'Face size and containment rules in approaches/06-zero-shot-detection/.',
+      ),
+    ],
+    thresholds: [
+      ('Min face score', '0.15'),
+      ('Min face area', '1 % of the photo'),
+      ('Min screen / print / not-real score', '0.35'),
+      ('Share of face inside that box', '80 %'),
+    ],
+    catches: [
+      'F1: no human (all 5 test scenes rejected)',
+      'F5: paintings, statues and drawings were flagged NOT_REAL in 4 of 6 test cases',
+    ],
+    misses: [
+      'Small faces on a phone or laptop screen: the face prompt scores under 0.15 there, so the photo is rejected as NO_FACE (right outcome, wrong reason).',
+      'A real photo of a painting-like subject, or a real person next to a TV, can be mislabeled.',
+    ],
+    verified: [
+      '26-image smoke test (CC0/public-domain photos plus simulated screens): 22 correct at the defaults, ROC-AUC 0.67. A weak signal on its own: it works as a rejector but not as a ranker.',
+      'Grounding DINO tiny: every context prompt fired on every image (face scores 0.20–0.33 even on walls), so it was dropped from the app.',
+    ],
+    limitations: [
+      'Slow compared with the detectors: the first request loads the model (about 5 s on an M4).',
+      'Needs the server; photos leave the phone (to our own machine only).',
+    ],
+    code: [
+      'server/humandetect_server/',
+      'approaches/06-zero-shot-detection/zero_shot_detection.py',
+    ],
+  ),
+  '07': ApproachDetails(
+    id: '07',
+    title: 'Duplicate detection',
+    question: 'Has this photo, or a re-shot or edited copy of it, been submitted before?',
+    steps: [
+      'The phone sends the photo to the server.',
+      'Two fingerprints: a 64-bit perceptual hash (pHash), and a DINOv2-small embedding (384 numbers describing what the photo shows).',
+      'Compared with every earlier submission: DUPLICATE if the pHash differs in ≤ 10 bits; RESUBMITTED if the DINOv2 similarity is ≥ 0.85.',
+      'A photo that passes is added to the index (fingerprints only, never the photo). A duplicate is not added again.',
+      'The result names the earlier photo by its short id and how long ago it was submitted.',
+    ],
+    components: [
+      Component(
+        'imagehash (pHash)',
+        'package',
+        'BSD-2',
+        '64-bit perceptual hash: survives re-compression, resizing and small brightness changes.',
+      ),
+      Component(
+        'DINOv2-small',
+        'model',
+        'Apache-2.0',
+        'facebook/dinov2-small (pinned commit): image embedding that survives re-shooting, cropping and framing.',
+      ),
+      Component(
+        'Fingerprint index',
+        'own code',
+        'this repo',
+        'server/data/duplicate_index.npz: fingerprints, ids and times only. Linear search, fine to a few hundred thousand photos.',
+      ),
+      Component('FastAPI', 'package', 'MIT', 'HTTP service.'),
+    ],
+    thresholds: [
+      ('pHash: max differing bits', '10'),
+      ('DINOv2: min similarity', '0.85'),
+    ],
+    catches: [
+      'F4: the same photo uploaded again for another customer, including after JPEG recompression, resizing, cropping, small rotations and a chat-screenshot frame',
+    ],
+    misses: [
+      'A mirrored copy is caught only by DINOv2 (pHash differs by about 32 bits).',
+      'Two different photos of the same person: that needs face recognition, which is on hold (no cleanly licensed model).',
+    ],
+    verified: [
+      'Calibrated on 13 public-domain photos × 7 edits: copies stay within 10 bits for JPEG q40, resizing, brightness; DINOv2 ≥ 0.82 for every edit. 78 different-photo pairs never exceeded 0.60 similarity or came closer than 20 bits.',
+      'Unit-tested with a fake embedder: duplicate, re-shot copy, new photo, reset.',
+    ],
+    limitations: [
+      'Every different photo passes and is added: the index only grows. Retention and privacy policy for fingerprints still to be agreed.',
+      'Thresholds come from synthetic edits, not real resubmissions yet.',
+    ],
+    code: [
+      'server/humandetect_server/',
+      'approaches/07-duplicate-detection/duplicates.py',
+    ],
+  ),
+  '08': ApproachDetails(
+    id: '08',
+    title: 'Deep detectors',
+    question: 'Is there one clear person, and are they not shown on a screen or print?',
+    steps: [
+      'The phone sends the photo to the server.',
+      'An open COCO detector (RT-DETRv2 R18 by default; D-FINE small also available) finds people, TVs/monitors, laptops, phones and books (phone frames and printed photos are often detected as "book").',
+      'NO_PERSON if no person scores ≥ 0.6; PERSON_TOO_SMALL if the largest covers < 8 % of the photo; NO_DOMINANT_PERSON if a second person is within 2× the size.',
+      'RECAPTURE if ≥ 70 % of the person box lies inside a screen or print box scoring ≥ 0.3.',
+    ],
+    components: [
+      Component(
+        'RT-DETRv2 R18',
+        'model',
+        'Apache-2.0',
+        'PekingU/rtdetr_v2_r18vd (pinned commit): end-to-end detector, no NMS step.',
+      ),
+      Component(
+        'D-FINE small',
+        'model',
+        'Apache-2.0',
+        'ustc-community/dfine-small-coco (pinned commit): alternative detector.',
+      ),
+      Component(
+        'Containment rules',
+        'own code',
+        'this repo',
+        'Person size, dominance and "person inside a screen" logic.',
+      ),
+      Component(
+        'FastAPI, transformers, PyTorch',
+        'package',
+        'MIT / Apache-2.0 / BSD',
+        'Service and inference. Ultralytics YOLO is excluded (AGPL).',
+      ),
+    ],
+    thresholds: [
+      ('Min person confidence', '0.6'),
+      ('Min person area', '8 % of the photo'),
+      ('Largest / second person', '≥ 2×'),
+      ('Min screen / print confidence', '0.3'),
+      ('Share of person inside it', '70 %'),
+    ],
+    catches: [
+      'F1: no person (all 5 scenes rejected)',
+      'F2 partly: a person on a TV-like screen, or inside a phone frame the detector sees',
+    ],
+    misses: [
+      'Paintings of people count as people (3 of 6 not-real photos passed): the detector is trained on photos of real scenes, but a portrait painting still looks like a person.',
+      'Screens the detector doesn\'t see (laptop and phone composites mostly passed).',
+    ],
+    verified: [
+      '26-image smoke test: RT-DETRv2 17/26 correct, ROC-AUC 0.77; D-FINE 15/26, AUC 0.87.',
+      'All 7 genuine photos passed with both models; every scene was rejected.',
+    ],
+    limitations: [
+      'Stronger person detection than Tier 1, but equally blind to prints and screens unless they are detected as objects.',
+    ],
+    code: [
+      'server/humandetect_server/',
+      'approaches/08-deep-detectors/detectors.py',
+    ],
+  ),
+  '09': ApproachDetails(
+    id: '09',
+    title: 'Open VLM judge',
+    question: 'If a small open vision-language model is asked what the photo shows, does it say "a real person"?',
+    steps: [
+      'The phone sends the photo to the server.',
+      'SmolVLM2 is asked a five-option question: A real person · B person on a screen · C printed photo, poster or ID card · D painting, drawing, statue, mannequin or cartoon · E no person.',
+      'Instead of generating text, the server reads the model\'s probability for each letter. The score is the probability of A.',
+      'PASS if A ≥ 0.5; otherwise the reason comes from the most likely other option (RECAPTURE, NOT_REAL or NO_HUMAN).',
+    ],
+    components: [
+      Component(
+        'SmolVLM2-500M-Video-Instruct',
+        'model',
+        'Apache-2.0',
+        'HuggingFaceTB/SmolVLM2-500M-Video-Instruct (pinned commit), run on our own machine. Photos never go to a third party.',
+      ),
+      Component(
+        'transformers, PyTorch, torchvision',
+        'package',
+        'Apache-2.0 / BSD',
+        'Inference.',
+      ),
+      Component(
+        'num2words',
+        'package',
+        'LGPL',
+        'Needed by SmolVLM\'s processor. Server-side only and not shipped in the app; flagged in THIRD_PARTY_LICENSES.md for a decision.',
+      ),
+      Component(
+        'Question and parsing',
+        'own code',
+        'this repo',
+        'Prompt, option table and score.',
+      ),
+    ],
+    thresholds: [("Min probability of 'real person'", '0.5')],
+    catches: [
+      'F1: no person (all scenes rejected, reason NO_HUMAN)',
+      'F2: screens and prints (all 8 test recaptures rejected)',
+      'F5: paintings, statues, mannequins (all 6 rejected)',
+    ],
+    misses: [
+      'It is cautious about real people too: 3 of 7 genuine photos were rejected (a person in front of a TV, a crowded selfie, a stylised portrait).',
+    ],
+    verified: [
+      '26-image smoke test: 23/26 correct, ROC-AUC 0.92, the best of the Tier 2 approaches on this set.',
+    ],
+    limitations: [
+      'Not a production candidate: heavy (1+ GB), about 0.5–3 s per photo on an M4, and answers vary with wording. Use it as an accuracy ceiling and as a labeler for training approaches.',
+      'Smoke-test set is small and partly synthetic.',
+    ],
+    code: [
+      'server/humandetect_server/',
+      'approaches/09-open-vlm-benchmark/vlm_judge.py',
     ],
   ),
 };
