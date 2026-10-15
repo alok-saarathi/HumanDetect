@@ -6,9 +6,10 @@ One app with a grid of tiles, one tile per approach:
 
 It's a **test harness, not the production app**.
 
-**Version 0.2.0** (the lab) has two sections:
+**Version 0.2.1** (the lab) has two sections and a pipeline that runs them in order:
 - **Tier 1 (01–05):** no training, runs on the phone. Gallery upload is accepted on tiles 01, 02 and 04.
 - **Tier 2 (06–09):** the photo is sent to the HumanDetect server, which runs models too big for a phone. For testing, the server runs on your Mac and the phone is on the same Wi-Fi: see [`../SERVER_SETUP.md`](../SERVER_SETUP.md#part-a--your-mac-as-the-server-start-here).
+- **Pipeline (15):** a capture runs blink, the live check, the rules, then TinyCLIP, and only then the server (08 → 07 → 06 → 09). An upload starts at the rules. Each step has a switch. A phone failure is not sent to the server.
 
 | Tile | Approach | What runs on the phone | Expected to catch |
 |---|---|---|---|
@@ -22,11 +23,11 @@ It's a **test harness, not the production app**.
 
 ## Install a ready build
 
-Download an APK from the repo's GitHub Releases (tag `lab-0.2.0`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
+Download an APK from the repo's GitHub Releases (tag `lab-0.2.1`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
 
-- `humandetect-lab-0.2.0-arm64-v8a.apk`: almost every phone from the last several years
-- `humandetect-lab-0.2.0-armeabi-v7a.apk`: older 32-bit phones
-- `humandetect-lab-0.2.0-universal.apk`: if unsure
+- `humandetect-lab-0.2.1-arm64-v8a.apk`: almost every phone from the last several years
+- `humandetect-lab-0.2.1-armeabi-v7a.apk`: older 32-bit phones
+- `humandetect-lab-0.2.1-universal.apk`: if unsure
 
 ## Build it yourself
 
@@ -62,13 +63,13 @@ Afterwards `app/assets/models/` holds:
 ### 3. Build and install
 ```
 cd app
-flutter build apk --release --no-tree-shake-icons --split-per-abi --build-name 0.2.0 --build-number 4
+flutter build apk --release --no-tree-shake-icons --split-per-abi --build-name 0.2.1 --build-number 5
 mkdir -p builds
-cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk builds/humandetect-lab-0.2.0-arm64-v8a.apk
-cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk builds/humandetect-lab-0.2.0-armeabi-v7a.apk
-flutter build apk --release --no-tree-shake-icons --build-name 0.2.0 --build-number 4
-cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.2.0-universal.apk
-adb install -r builds/humandetect-lab-0.2.0-arm64-v8a.apk      # or send the APK file to the phone
+cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk builds/humandetect-lab-0.2.1-arm64-v8a.apk
+cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk builds/humandetect-lab-0.2.1-armeabi-v7a.apk
+flutter build apk --release --no-tree-shake-icons --build-name 0.2.1 --build-number 5
+cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.2.1-universal.apk
+adb install -r builds/humandetect-lab-0.2.1-arm64-v8a.apk      # or send the APK file to the phone
 ```
 - **`--no-tree-shake-icons`:** skips an icon-font step that once hung for 30 minutes on an Intel-only tool under Rosetta. The APK is slightly larger.
 - **Signing:** release builds are signed with the debug key, which is fine for testers, not for the Play Store.
