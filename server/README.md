@@ -9,13 +9,16 @@ A small FastAPI service (deployment option D3) that runs the approaches too big 
 | 08 | Open deep detectors | RT-DETRv2 R18, D-FINE small (Apache-2.0) |
 | 09 | Open VLM judge | SmolVLM2-500M (Apache-2.0); needs `num2words` (LGPL, see THIRD_PARTY_LICENSES.md) |
 
-Models download from Hugging Face on first use (about 3 GB in total, cached), at pinned commits.
+Models download from Hugging Face on first use (2.7 GB in total, cached), at pinned commits.
 
 ## Run it
+
+**Deploying to a server?** Follow [SERVER_SETUP.md](../SERVER_SETUP.md) (install, settings, systemd, HTTPS, troubleshooting). The short version for a laptop:
 
 From the repo root:
 ```
 uv sync --group models --group server
+uv run --group models --group server python -m humandetect_server.warmup   # optional: download models now
 uv run --group models --group server uvicorn humandetect_server.app:app --app-dir server --host 0.0.0.0 --port 8000
 ```
 - It uses the Apple GPU (MPS), CUDA or the CPU automatically. Force one with `HUMANDETECT_DEVICE=cpu`.

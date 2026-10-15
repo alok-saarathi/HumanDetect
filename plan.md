@@ -135,7 +135,7 @@ Full plan: [dataset/README.md](dataset/README.md).
 - [ ] **06 · Zero-shot open-vocabulary detection (OWLv2)** · `Stage 2 · Prototype ✓ server + tile 06` · [folder](approaches/06-zero-shot-detection/) · weak alone (AUC 0.67 on smoke set); Grounding DINO dropped
 - [ ] **07 · Duplicate and reuse detection (pHash, DINOv2)** · `Stage 2 · Prototype ✓ server + tile 07` · [folder](approaches/07-duplicate-detection/) · next: retention policy, real resubmissions
 - [ ] **08 · Open deep detectors (RT-DETRv2, D-FINE)** · `Stage 2 · Prototype ✓ server + tile 08` · [folder](approaches/08-deep-detectors/) · good person detector, blind to prints/screens
-- [ ] **09 · Self-hosted open VLM as benchmark and labeler (SmolVLM2-500M)** · `Stage 2 · Prototype ✓ server + tile 09` · [folder](approaches/09-open-vlm-benchmark/) · best on smoke set (AUC 0.92); `num2words` LGPL needs a decision
+- [ ] **09 · Self-hosted open VLM as benchmark and labeler (SmolVLM2-500M)** · `Stage 2 · Prototype ✓ server + tile 09` · [folder](approaches/09-open-vlm-benchmark/) · best on smoke set (AUC 0.92); `num2words` LGPL accepted for server use
 
 **Tier 3: dataset-based, trained on our own data (toughest)**
 - [ ] **10 · Frozen embeddings + linear probe** · `Stage 0 · Not started` · [folder](approaches/10-embedding-probe/)
@@ -299,7 +299,8 @@ The results CSV format and metrics are in [`evaluation/README.md`](evaluation/RE
 | 2026-10-14 | app | One lab app with a grid of approaches instead of one flavor per approach | easier side-by-side testing on one phone |
 | 2026-10-14 | 02 | Ship TinyCLIP ViT-39M/16 (YFCC15M, MIT, int8 40 MB); keep SigLIP 2 as the server/teacher reference | 8M too weak on the smoke test (AUC 0.90 vs 0.93); SigLIP 2 best (0.98) but 95M params; avoid LAION-trained variants |
 | 2026-10-14 | 06–09 | Tier 2 runs on one FastAPI server (D3); apps send photos over the LAN, judged in memory | models too big for phones; photos stay on our own machine |
-| 2026-10-14 | 09 | SmolVLM2-500M kept as benchmark/labeler only; `num2words` (LGPL) flagged | server-side, not shipped; awaiting decision |
+| 2026-10-14 | 09 | SmolVLM2-500M kept as benchmark/labeler only | not a production check |
+| 2026-10-15 | 09 | `num2words` (LGPL) accepted as a server-side exception | used unmodified on our own server, never shipped in the app |
 | 2026-10-14 | 01 | BlazeFace short-range with our own decoder; YuNet/Haar deferred | decoder matches mediapipe; extra detectors only if BlazeFace underperforms on our eval set |
 | 2026-10-14 | app | Gallery is a valid still-photo input for 01, 02 and 04. 03 and 05 stay camera-only. 04's EXIF clock is not a hard fail on a gallery file | a real customer photo may be shot in-app or chosen from the gallery; a file cannot prove it was taken just now |
 

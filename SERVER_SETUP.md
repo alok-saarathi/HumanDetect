@@ -7,7 +7,7 @@ How to install, start, secure and operate the Tier 2 server (approaches 06–09)
 git clone https://github.com/alok-saarathi/HumanDetect.git && cd HumanDetect
 uv sync --group models --group server
 export HUMANDETECT_TOKEN='<long random string>'
-uv run --group models --group server python -m humandetect_server.warmup      # once: downloads ~3 GB of models
+uv run --group models --group server python -m humandetect_server.warmup      # once: downloads ~2.7 GB of models
 uv run --group models --group server uvicorn humandetect_server.app:app --app-dir server --host 0.0.0.0 --port 8000
 curl localhost:8000/v1/health
 ```
@@ -19,8 +19,8 @@ Then put `http://<server address>:8000` and the token into the app's **Server** 
 |---|---|---|
 | OS | Linux (x86-64 or arm64) or macOS | Tested on macOS 15, Apple M4 |
 | Python | 3.11, 3.12 or 3.13 | `uv` installs one for you. 3.14 is not supported yet |
-| Memory | 8 GB free | All four approaches loaded use about 4–5 GB. If you only run 07 and 08, 2 GB is enough |
-| Disk | 10 GB free | ~5 GB of Python packages + ~3 GB of models, plus working space |
+| Memory | 8 GB free (recommended) | We have not measured peak memory on a CPU/CUDA server (on the Apple GPU it doesn't show up in the usual counters). The model weights are 2.7 GB on disk (09 alone is 1.9 GB), so allow that plus headroom. 07 and 08 alone are about 0.2 GB of weights |
+| Disk | 10 GB free | Python packages (PyTorch is most of it, several GB on Linux) + 2.7 GB of models + working space |
 | GPU | optional | NVIDIA (CUDA) or Apple (MPS) is used automatically. On CPU everything works, but expect seconds per photo instead of 0.1–4 s |
 | Network | internet for setup | Hugging Face and PyPI. Afterwards the server needs no internet |
 
@@ -46,7 +46,7 @@ Then put `http://<server address>:8000` and the token into the app's **Server** 
    - `models` brings PyTorch and `transformers`; `server` brings FastAPI and the rest.
    - **On Linux the default PyTorch wheel includes NVIDIA CUDA libraries** (several GB extra), even on a machine with no GPU. That is harmless, just large.
    - **Licenses:** all packages are open source. The one exception to our "no copyleft" rule is `num2words` (LGPL), which approach 09's model needs. It is accepted for server-side use only: see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
-4. **Download the models once** (about 3 GB, cached under `~/.cache/huggingface`):
+4. **Download the models once** (about 2.7 GB: OWLv2 593 MB, SmolVLM2 1.9 GB, DINOv2 84 MB, RT-DETR 77 MB, D-FINE 40 MB; cached under `~/.cache/huggingface`):
    ```
    uv run --group models --group server python -m humandetect_server.warmup
    ```

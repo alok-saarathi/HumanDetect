@@ -603,7 +603,7 @@ const approachDetails = <String, ApproachDetails>{
         'num2words',
         'package',
         'LGPL',
-        'Needed by SmolVLM\'s processor. Server-side only and not shipped in the app; flagged in THIRD_PARTY_LICENSES.md for a decision.',
+        'Needed by SmolVLM\'s processor. Server-side only and never shipped in the app: accepted as an exception in THIRD_PARTY_LICENSES.md.',
       ),
       Component(
         'Question and parsing',

@@ -45,7 +45,7 @@ Every model, dataset, package and tool must be listed here **before** first use.
 | `imagehash` 4.3.2 (BSD-2), `PyWavelets` (MIT/BSD-3), `scipy` (BSD) | package | permissive | 07 | 2026-10-14 | package metadata |
 | `torchvision` 0.28 | package | BSD | 09 | 2026-10-14 | package metadata |
 | `httpx`, `pytest` | test package | BSD-3 / MIT | server tests | to confirm | dev only |
-| **`num2words` 0.5.14** | package | **LGPL** | 09 (server only) | 2026-10-14 | **Needs a decision.** SmolVLM's processor imports it. LGPL, a weak copyleft, used unmodified as a library on the server; never shipped in the app. Our rules say no copyleft in anything we ship, so either accept it for server-side use or drop approach 09 / stub the import |
+| `num2words` 0.5.14 | package | LGPL (weak copyleft) | 09 (server only) | 2026-10-14 | **Accepted 2026-10-15 as a server-side exception.** SmolVLM's processor imports it. Used unmodified as a library on our own server and never shipped in the app, so no source obligations reach app users. Revisit if the server software is ever distributed to others |
 | SigLIP 2 base (`google/siglip2-base-patch32-256`, `-patch16-224`) | model | Apache-2.0 | 02 comparison only | 2026-10-14 | Hugging Face model card metadata |
 | TinyCLIP ViT-8M/16 YFCC, ViT-40M/32 and ViT-61M/32 LAION | model | MIT | 02 comparison only | 2026-10-14 | Hugging Face model card metadata |
 | Wikimedia Commons test images (CC0 / public domain only) | data | CC0 / PD | smoke tests, scratch only, not committed | per file | license field read from the Commons API for each file |

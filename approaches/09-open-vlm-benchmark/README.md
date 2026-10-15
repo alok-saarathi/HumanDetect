@@ -28,4 +28,4 @@ Code: `vlm_judge.py` (class `VlmJudge`): SmolVLM2-500M, pinned commit, bf16 on t
 
 **Use:** accuracy ceiling to compare other approaches against, and a labeler for the training approaches (10–14). Not a production check.
 
-**License flag:** the processor needs `num2words` (LGPL). See THIRD_PARTY_LICENSES.md.
+**License:** the processor needs `num2words` (LGPL). Accepted on 2026-10-15 as a server-side exception (never shipped in the app): see THIRD_PARTY_LICENSES.md.
