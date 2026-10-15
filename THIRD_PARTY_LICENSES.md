@@ -18,6 +18,7 @@ Every model, dataset, package and tool must be listed here **before** first use.
 | LiteRT Android runtime (`com.google.ai.edge.litert:litert`, `litert-gpu`) | native library | Apache-2.0 | app (via tflite_flutter) | to confirm | google-ai-edge/LiteRT |
 | `image` 4.12.0 | Dart package | MIT | app | 2026-10-14 | LICENSE file in package |
 | `device_info_plus` 13.3.0 | Dart package | BSD-3 | 03 | 2026-10-14 | LICENSE file in package |
+| `shared_preferences` 2.5 (+ its android, platform-interface and desktop/web implementations) | Dart package | BSD-3 | app (remembers the server address) | 2026-10-15 | LICENSE files; no copyleft among its dependencies |
 | `crypto` 3.0.7 | Dart package | BSD-3 | 03 | 2026-10-14 | LICENSE file in package |
 | `exif` 3.3.0 | Dart package | MIT | 04 | 2026-10-14 | LICENSE file in package |
 | `geolocator_android` 5.1.1 + `geolocator_platform_interface` 4.4.0 | Dart package | MIT | 03 | 2026-10-14 | LICENSE files. Used instead of `geolocator`, whose Linux implementation pulls in MPL-2.0 packages (`dbus`, `geoclue`, `gsettings`) |

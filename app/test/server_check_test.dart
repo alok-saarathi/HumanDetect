@@ -32,10 +32,10 @@ void main() {
   });
 
   test('endpoint joins address, path and query', () {
-    ServerSettings.url = 'http://10.0.0.5:8000/';
+    ServerSettings.url = 'http://10.0.0.5:8765/';
     expect(
       ServerSettings.endpoint('/v1/check/08', {'min_area': '0.1'}).toString(),
-      'http://10.0.0.5:8000/v1/check/08?min_area=0.1',
+      'http://10.0.0.5:8765/v1/check/08?min_area=0.1',
     );
   });
 

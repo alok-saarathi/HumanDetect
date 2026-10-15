@@ -252,13 +252,13 @@ Full plan: [dataset/README.md](dataset/README.md).
 
 ## 7. Flutter test app
 
-The app lives in [`app/`](app/README.md). **Lab 0.2.0 is built locally** (not yet released; 0.1.2 is the last release, tag `lab-0.1.2`): adds a Tier 2 section whose tiles (06–09) send the photo to the FastAPI server in [`server/`](server/README.md). Gallery upload is accepted on tiles 01, 02 and 04 (since 0.1.1); 0.1.2 reopens the camera after leaving the app (e.g. after the gallery picker) and fixes tile 04 on tiny images.
+The app lives in [`app/`](app/README.md). **Lab 0.2.0:** adds a Tier 2 section whose tiles (06–09) send the photo to the FastAPI server in [`server/`](server/README.md). **Test setup:** the server runs on a Mac and the phone is on the same Wi-Fi; the app remembers the Mac's address and lets the tester change it (cloud icon in the top bar). Start the server with `server/start_mac.sh`; guide in [SERVER_SETUP.md](SERVER_SETUP.md). Gallery upload is accepted on tiles 01, 02 and 04 (since 0.1.1); 0.1.2 reopens the camera after leaving the app (e.g. after the gallery picker) and fixes tile 04 on tiny images.
 - **One app with a grid:** one tile per Tier 1 approach (01–05).
   - Tap a tile: the camera opens with only that approach applied, then a result screen shows the verdict, reasons, photo marks and timings. Tiles 01, 02 and 04 also accept one photo from the Android gallery picker. Tiles 03 and 05 stay camera-only.
   - **Details** on each tile (and ⓘ on each camera screen): how the approach works step by step, its components and licenses, thresholds, what it catches and misses, how it was checked, limitations and code paths.
   - **Thresholds** are adjustable live from each camera screen.
 - **Version** `0.<tier>.<iteration>`: `0.1.x` is the Tier 1 lab. This replaced the earlier plan of one Android flavor per approach.
-- **Tests:** 28 Flutter tests. Dart matches the Python references on synthetic inputs; the liveness state machine, the gallery-source rules and the Details pages are covered too.
+- **Tests:** 47 Flutter tests and 10 server tests. Dart matches the Python references on synthetic inputs; the liveness state machine, the gallery-source rules and the Details pages are covered too.
 - **Still to add:** a batch-eval screen (run a check over a folder on the phone, export results CSV) once the eval set exists.
 
 **Open source only:** all Flutter packages must be MIT, BSD or Apache. Unused permissions that plugins merge in (microphone, storage, phone state) are stripped.
@@ -300,6 +300,7 @@ The results CSV format and metrics are in [`evaluation/README.md`](evaluation/RE
 | 2026-10-14 | 02 | Ship TinyCLIP ViT-39M/16 (YFCC15M, MIT, int8 40 MB); keep SigLIP 2 as the server/teacher reference | 8M too weak on the smoke test (AUC 0.90 vs 0.93); SigLIP 2 best (0.98) but 95M params; avoid LAION-trained variants |
 | 2026-10-14 | 06–09 | Tier 2 runs on one FastAPI server (D3); apps send photos over the LAN, judged in memory | models too big for phones; photos stay on our own machine |
 | 2026-10-14 | 09 | SmolVLM2-500M kept as benchmark/labeler only | not a production check |
+| 2026-10-15 | app/server | Test setup: server on the tester's Mac, phone on the same Wi-Fi; address editable in the app and remembered; default port 8765 (8000 clashes with other local tools); start script prints the address | flexible testing without a deployed server |
 | 2026-10-15 | 09 | `num2words` (LGPL) accepted as a server-side exception | used unmodified on our own server, never shipped in the app |
 | 2026-10-14 | 01 | BlazeFace short-range with our own decoder; YuNet/Haar deferred | decoder matches mediapipe; extra detectors only if BlazeFace underperforms on our eval set |
 | 2026-10-14 | app | Gallery is a valid still-photo input for 01, 02 and 04. 03 and 05 stay camera-only. 04's EXIF clock is not a hard fail on a gallery file | a real customer photo may be shot in-app or chosen from the gallery; a file cannot prove it was taken just now |

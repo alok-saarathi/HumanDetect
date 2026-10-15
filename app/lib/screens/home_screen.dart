@@ -5,14 +5,86 @@ import '../approaches/registry.dart';
 import '../approaches/server/server_check.dart';
 import 'approach_detail_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  /// [ping] is the server health check (replaced in tests).
+  const HomeScreen({super.key, this.ping = pingServer});
+
+  final Future<String> Function() ping;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _status = ValueNotifier<ServerStatus>(ServerStatus.unknown());
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+    // First launch: ask for the Mac's address right away.
+    if (!ServerSettings.isSet) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await showServerDialog(context);
+        _check();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _status.dispose();
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    if (!ServerSettings.isSet) {
+      _status.value = ServerStatus.notSet();
+      return;
+    }
+    _status.value = ServerStatus.checking();
+    try {
+      final approaches = await widget.ping();
+      _status.value = ServerStatus.connected(approaches);
+    } catch (e) {
+      _status.value = ServerStatus.failed('$e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('HumanDetect lab')),
+      appBar: AppBar(
+        title: const Text('HumanDetect lab'),
+        actions: [
+          // Always visible, so the server can be checked and changed without scrolling.
+          ValueListenableBuilder<ServerStatus>(
+            valueListenable: _status,
+            builder: (context, st, _) => IconButton(
+              tooltip: 'Server: ${st.message.isEmpty ? 'unknown' : st.message}',
+              onPressed: () async {
+                await showServerDialog(context);
+                _check();
+              },
+              icon: Icon(
+                switch (st.link) {
+                  LinkState.connected => Icons.cloud_done,
+                  LinkState.failed => Icons.cloud_off,
+                  LinkState.checking => Icons.cloud_sync,
+                  _ => Icons.cloud_queue,
+                },
+                color: switch (st.link) {
+                  LinkState.connected => Colors.green.shade700,
+                  LinkState.failed => theme.colorScheme.error,
+                  _ => null,
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
       body: CustomScrollView(
         slivers: [
           SliverPadding(
@@ -35,22 +107,13 @@ class HomeScreen extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             sliver: SliverToBoxAdapter(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Tier 2 · runs on the HumanDetect server',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () => showServerDialog(context),
-                    icon: const Icon(Icons.dns_outlined, size: 18),
-                    label: const Text('Server'),
-                  ),
-                ],
+              child: _ServerBar(
+                status: _status,
+                onChange: () async {
+                  await showServerDialog(context);
+                  _check();
+                },
+                onRefresh: _check,
               ),
             ),
           ),
@@ -223,56 +286,181 @@ class _Tile extends StatelessWidget {
   }
 }
 
-/// Address and token of the server the Tier 2 tiles talk to, with a connection test.
+enum LinkState { notSet, checking, connected, failed, unknown }
+
+/// What the home screen knows about the server right now.
+class ServerStatus {
+  const ServerStatus._(this.link, this.message);
+  factory ServerStatus.unknown() => const ServerStatus._(LinkState.unknown, '');
+  factory ServerStatus.notSet() =>
+      const ServerStatus._(LinkState.notSet, 'No address yet');
+  factory ServerStatus.checking() =>
+      const ServerStatus._(LinkState.checking, 'Checking…');
+  factory ServerStatus.connected(String approaches) =>
+      ServerStatus._(LinkState.connected, 'Connected · approaches $approaches');
+  factory ServerStatus.failed(String why) =>
+      ServerStatus._(LinkState.failed, why);
+
+  final LinkState link;
+  final String message;
+}
+
+class _ServerBar extends StatelessWidget {
+  const _ServerBar({
+    required this.status,
+    required this.onChange,
+    required this.onRefresh,
+  });
+
+  final ValueNotifier<ServerStatus> status;
+  final VoidCallback onChange;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ValueListenableBuilder<ServerStatus>(
+      valueListenable: status,
+      builder: (context, st, _) {
+        final (color, icon) = switch (st.link) {
+          LinkState.connected => (Colors.green.shade700, Icons.check_circle),
+          LinkState.failed => (theme.colorScheme.error, Icons.error),
+          LinkState.checking => (theme.colorScheme.outline, Icons.sync),
+          _ => (theme.colorScheme.outline, Icons.dns_outlined),
+        };
+        return Card.outlined(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tier 2 · runs on your Mac (server)',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(icon, size: 18, color: color),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ServerSettings.isSet
+                                ? ServerSettings.url
+                                : 'Not connected',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            st.message,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Check again',
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh),
+                    ),
+                    TextButton(
+                      onPressed: onChange,
+                      child: const Text('Change'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Address and token of the server the Tier 2 tiles talk to. The address can be a bare
+/// IP ("192.168.1.23"), which gets "http://" and port 8765. Test checks it before saving;
+/// Cancel keeps the previous settings.
 Future<void> showServerDialog(BuildContext context) {
+  final oldUrl = ServerSettings.url, oldToken = ServerSettings.token;
   final url = TextEditingController(text: ServerSettings.url);
   final token = TextEditingController(text: ServerSettings.token);
   String? status;
+  var ok = false;
   var testing = false;
   return showDialog<void>(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('HumanDetect server'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Photos are sent here for Tier 2 checks and judged in memory. '
-              'Start the server with server/README.md, then use the computer\'s address.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: url,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'Address',
-                hintText: 'http://192.168.1.10:8000',
+        title: const Text('Server on your Mac'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Start the server on the Mac (server/start_mac.sh), keep the phone on '
+                'the same Wi-Fi, and type the address the script prints. A Mac\'s '
+                'address can change, so come back here if it stops connecting.',
               ),
-            ),
-            TextField(
-              controller: token,
-              decoration: const InputDecoration(
-                labelText: 'Token (only if the server sets one)',
+              const SizedBox(height: 12),
+              TextField(
+                controller: url,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'Mac address',
+                  hintText: '192.168.1.23   or   http://192.168.1.23:8765',
+                ),
               ),
-            ),
-            if (status != null) ...[const SizedBox(height: 12), Text(status!)],
-          ],
+              TextField(
+                controller: token,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'Token (leave empty unless the server sets one)',
+                ),
+              ),
+              if (status != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  status!,
+                  style: TextStyle(
+                    color: ok
+                        ? Colors.green.shade700
+                        : Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: testing
                 ? null
                 : () async {
-                    ServerSettings.url = url.text;
-                    ServerSettings.token = token.text;
+                    ServerSettings.url = normalizeAddress(url.text);
+                    ServerSettings.token = token.text.trim();
+                    url.text = ServerSettings.url;
                     setState(() {
                       testing = true;
+                      ok = false;
                       status = 'Testing…';
                     });
                     try {
-                      status = await pingServer();
+                      final found = await pingServer();
+                      ok = true;
+                      status = 'Connected. Approaches on the server: $found';
                     } catch (e) {
                       status = '$e';
                     }
@@ -280,11 +468,18 @@ Future<void> showServerDialog(BuildContext context) {
                   },
             child: const Text('Test'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () {
-              ServerSettings.url = url.text;
-              ServerSettings.token = token.text;
+              ServerSettings.url = oldUrl;
+              ServerSettings.token = oldToken;
               Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await ServerSettings.save(url.text, token.text);
+              if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Save'),
           ),

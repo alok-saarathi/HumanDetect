@@ -1,7 +1,7 @@
 """HTTP service for the Tier 2 approaches (deployment option D3 in plan.md).
 
 Run (from the repo root):
-    uv run --group models --group server uvicorn humandetect_server.app:app --app-dir server --host 0.0.0.0 --port 8000
+    uv run --group models --group server uvicorn humandetect_server.app:app --app-dir server --host 0.0.0.0 --port 8765
 
 Endpoints
     GET  /v1/health                      liveness of the service

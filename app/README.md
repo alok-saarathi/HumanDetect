@@ -6,9 +6,9 @@ One app with a grid of tiles, one tile per approach:
 
 It's a **test harness, not the production app**.
 
-**Version 0.2.0** has two sections:
+**Version 0.2.0** (the lab) has two sections:
 - **Tier 1 (01–05):** no training, runs on the phone. Gallery upload is accepted on tiles 01, 02 and 04.
-- **Tier 2 (06–09):** the photo is sent to the HumanDetect server ([`../server/README.md`](../server/README.md)), which runs models too big for a phone. Press **Server** on the home screen to set its address. Needs the server running and the phone on the same network.
+- **Tier 2 (06–09):** the photo is sent to the HumanDetect server, which runs models too big for a phone. For testing, the server runs on your Mac and the phone is on the same Wi-Fi: see [`../SERVER_SETUP.md`](../SERVER_SETUP.md#part-a--your-mac-as-the-server-start-here).
 
 | Tile | Approach | What runs on the phone | Expected to catch |
 |---|---|---|---|
@@ -22,11 +22,11 @@ It's a **test harness, not the production app**.
 
 ## Install a ready build
 
-Download an APK from the repo's GitHub Releases (tag `lab-0.1.2`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
+Download an APK from the repo's GitHub Releases (tag `lab-0.2.0`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
 
-- `humandetect-lab-0.1.2-arm64-v8a.apk`: almost every phone from the last several years
-- `humandetect-lab-0.1.2-armeabi-v7a.apk`: older 32-bit phones
-- `humandetect-lab-0.1.2-universal.apk`: if unsure
+- `humandetect-lab-0.2.0-arm64-v8a.apk`: almost every phone from the last several years
+- `humandetect-lab-0.2.0-armeabi-v7a.apk`: older 32-bit phones
+- `humandetect-lab-0.2.0-universal.apk`: if unsure
 
 ## Build it yourself
 
@@ -62,17 +62,26 @@ Afterwards `app/assets/models/` holds:
 ### 3. Build and install
 ```
 cd app
-flutter build apk --release --split-per-abi --build-name 0.1.2 --build-number 3
+flutter build apk --release --no-tree-shake-icons --split-per-abi --build-name 0.2.0 --build-number 4
 mkdir -p builds
-cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk builds/humandetect-lab-0.1.2-arm64-v8a.apk
-cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk builds/humandetect-lab-0.1.2-armeabi-v7a.apk
-flutter build apk --release --build-name 0.1.2 --build-number 3
-cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.1.2-universal.apk
-adb install -r builds/humandetect-lab-0.1.2-arm64-v8a.apk      # or send the APK file to the phone
+cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk builds/humandetect-lab-0.2.0-arm64-v8a.apk
+cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk builds/humandetect-lab-0.2.0-armeabi-v7a.apk
+flutter build apk --release --no-tree-shake-icons --build-name 0.2.0 --build-number 4
+cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.2.0-universal.apk
+adb install -r builds/humandetect-lab-0.2.0-arm64-v8a.apk      # or send the APK file to the phone
 ```
+- **`--no-tree-shake-icons`:** skips an icon-font step that once hung for 30 minutes on an Intel-only tool under Rosetta. The APK is slightly larger.
 - **Signing:** release builds are signed with the debug key, which is fine for testers, not for the Play Store.
 - **Distribution:** `builds/` is git-ignored. APKs are published as GitHub Releases tagged `lab-<version>`.
 - **Version numbers:** `0.<tier>.<iteration>`, so `0.1.x` is the Tier 1 lab and `0.2.x` adds Tier 2 and `1.0.0` is reserved for a production candidate.
+
+## Connecting to the server (Tier 2)
+
+The app asks for the Mac's address the first time it opens.
+- **Enter just the number** the Mac's `server/start_mac.sh` prints, e.g. `192.168.1.3` (the app adds `http://` and port 8765), or a full address such as `http://192.168.1.3:9000` or `https://…`. **Test** checks it; **Save** remembers it between launches; **Cancel** keeps the old one.
+- **Status is always visible:** the cloud icon in the top bar is green when connected, red when the Mac can't be reached, and the Tier 2 card on the home screen shows the address and the reason. Tap the icon, or **Change** on the card, to switch to another address (for example when the Mac's address changes); the refresh arrow re-checks.
+- A Tier 2 tile with no reachable server shows a clear error ("Cannot reach http://… Is the server running, and the phone on the same network?") instead of failing silently.
+- The lab build sends photos over plain HTTP, so use it only on a network you trust.
 
 ## Using it
 

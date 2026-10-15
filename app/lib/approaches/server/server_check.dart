@@ -6,17 +6,69 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/check.dart';
 
-/// Where the server runs. Set from the home screen (lab only: plain HTTP on the LAN).
+/// Where the server runs: set from the home screen, remembered between launches.
+/// Lab use: plain HTTP to a computer on the same Wi-Fi.
 class ServerSettings {
-  static String url = 'http://192.168.1.10:8000';
+  static const defaultPort = 8765;
+  static const _urlKey = 'server_url';
+  static const _tokenKey = 'server_token';
+
+  /// Empty until the tester enters one.
+  static String url = '';
   static String token = '';
 
+  static bool get isSet => url.isNotEmpty;
+
+  static Future<void> load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      url = prefs.getString(_urlKey) ?? '';
+      token = prefs.getString(_tokenKey) ?? '';
+    } catch (_) {
+      // Settings simply aren't remembered if storage is unavailable.
+    }
+  }
+
+  /// Saves a cleaned-up address (see [normalizeAddress]) and token.
+  static Future<void> save(String rawUrl, String rawToken) async {
+    url = normalizeAddress(rawUrl);
+    token = rawToken.trim();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_urlKey, url);
+      await prefs.setString(_tokenKey, token);
+    } catch (_) {}
+  }
+
   static Uri endpoint(String path, [Map<String, String>? query]) {
-    final base = Uri.parse(url.trim().replaceAll(RegExp(r'/+$'), ''));
+    final base = Uri.parse(url.replaceAll(RegExp(r'/+$'), ''));
     return base.replace(path: '${base.path}$path', queryParameters: query);
   }
+}
+
+/// Turns what a tester types into a full address: "192.168.1.23" becomes
+/// "http://192.168.1.23:8765"; "mac.local:9000" keeps its port; "https://…" is kept.
+/// Returns '' for empty input.
+String normalizeAddress(String input) {
+  var text = input.trim();
+  if (text.isEmpty) return '';
+  if (!text.contains('://')) text = 'http://$text';
+  final uri = Uri.tryParse(text);
+  if (uri == null || uri.host.isEmpty) return input.trim();
+  final port = uri.hasPort
+      ? uri.port
+      : (uri.scheme == 'https' ? null : ServerSettings.defaultPort);
+  final path = uri.path.replaceAll(RegExp(r'/+$'), '');
+  return Uri(
+    scheme: uri.scheme,
+    host: uri.host,
+    port: port,
+    path: path,
+  ).toString();
 }
 
 class ServerUnreachable implements Exception {
@@ -32,6 +84,11 @@ Future<dynamic> _send(
   List<int>? body,
   Duration timeout = const Duration(seconds: 120),
 }) async {
+  if (!ServerSettings.isSet) {
+    throw ServerUnreachable(
+      'No server address yet. Press Server on the home screen and enter your Mac\'s address.',
+    );
+  }
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
   try {
     final request = await client
@@ -73,14 +130,14 @@ String _detail(String body) {
   }
 }
 
-/// Health check used by the settings dialog.
+/// Health check: the approach ids the server offers, e.g. "06, 07, 08, 09".
 Future<String> pingServer() async {
   final health = await _send(
     'GET',
     ServerSettings.endpoint('/v1/health'),
     timeout: const Duration(seconds: 8),
   ) as Map;
-  return 'Connected. Approaches on the server: ${(health['approaches'] as List).join(', ')}';
+  return (health['approaches'] as List).join(', ');
 }
 
 CheckResult parseServerResult(Map<String, dynamic> json) {

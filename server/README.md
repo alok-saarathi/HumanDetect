@@ -13,19 +13,19 @@ Models download from Hugging Face on first use (2.7 GB in total, cached), at pin
 
 ## Run it
 
-**Deploying to a server?** Follow [SERVER_SETUP.md](../SERVER_SETUP.md) (install, settings, systemd, HTTPS, troubleshooting). The short version for a laptop:
+**Testing with a phone on your Mac?** Run `server/start_mac.sh` and follow [SERVER_SETUP.md, Part A](../SERVER_SETUP.md#part-a--your-mac-as-the-server-start-here): it starts the server, prints the address to type into the app, and covers changing it, Wi-Fi problems and the firewall. **Deploying on a dedicated machine?** See Part B of the same guide. The manual commands:
 
 From the repo root:
 ```
 uv sync --group models --group server
 uv run --group models --group server python -m humandetect_server.warmup   # optional: download models now
-uv run --group models --group server uvicorn humandetect_server.app:app --app-dir server --host 0.0.0.0 --port 8000
+uv run --group models --group server uvicorn humandetect_server.app:app --app-dir server --host 0.0.0.0 --port 8765
 ```
 - It uses the Apple GPU (MPS), CUDA or the CPU automatically. Force one with `HUMANDETECT_DEVICE=cpu`.
 - Models load on first use of each approach, so the first request to an approach takes several seconds (06: ~5 s, 09: ~10 s on an M4).
 - Optional shared secret: set `HUMANDETECT_TOKEN=...` and enter the same value in the app's Server dialog.
 
-**Phone to computer:** on the same Wi-Fi, open the app's **Server** button on the home screen, enter `http://<computer's LAN address>:8000` (e.g. from `ipconfig getifaddr en0`), press **Test**.
+**Phone to computer:** on the same Wi-Fi, open the app's **Server** button on the home screen, enter `http://<computer's LAN address>:8765` (e.g. from `ipconfig getifaddr en0`), press **Test**.
 - Lab builds use plain HTTP (`usesCleartextTraffic`). A real deployment needs HTTPS, authentication and a rate limit.
 - Allow incoming connections if the macOS firewall asks.
 
@@ -40,7 +40,7 @@ uv run --group models --group server uvicorn humandetect_server.app:app --app-di
 
 Errors: 400 (empty body or bad parameter), 401 (token), 404 (unknown approach), 413 (over 25 MB), 415 (not an image).
 ```
-curl -X POST --data-binary @photo.jpg "localhost:8000/v1/check/08?min_area=0.05"
+curl -X POST --data-binary @photo.jpg "localhost:8765/v1/check/08?min_area=0.05"
 ```
 
 ## Command line (no phone needed)

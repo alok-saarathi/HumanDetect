@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'approaches/server/server_check.dart';
 import 'screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Portrait only: the camera frame rotation logic assumes it.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await ServerSettings.load();
   runApp(const HumanDetectApp());
 }
 

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:humandetect_app/approaches/approach_details.dart';
 import 'package:humandetect_app/approaches/registry.dart';
+import 'package:humandetect_app/approaches/server/server_check.dart';
 import 'package:humandetect_app/screens/approach_detail_screen.dart';
 import 'package:humandetect_app/screens/home_screen.dart';
 
 void main() {
+  setUp(() => ServerSettings.url = 'http://192.168.1.23:8765');
+
   test('every tile has a details page', () {
     for (final tile in [...tier1, ...tier2]) {
       final d = approachDetails[tile.id];
@@ -32,7 +35,9 @@ void main() {
   }
 
   testWidgets('the Details button on a tile opens its page', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpWidget(
+      MaterialApp(home: HomeScreen(ping: () async => '06, 07')),
+    );
     await tester.tap(find.text('Details').first);
     await tester.pumpAndSettle();
     expect(find.text(approachDetails['01']!.question), findsOneWidget);
@@ -45,12 +50,12 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      const MediaQuery(
-        data: MediaQueryData(
+      MediaQuery(
+        data: const MediaQueryData(
           size: Size(360, 740),
           textScaler: TextScaler.linear(1.3),
         ),
-        child: MaterialApp(home: HomeScreen()),
+        child: MaterialApp(home: HomeScreen(ping: () async => '06, 07')),
       ),
     );
     await tester.pumpAndSettle();
