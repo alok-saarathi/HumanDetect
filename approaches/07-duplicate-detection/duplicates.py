@@ -106,7 +106,10 @@ class DuplicateCheck:
                 elif similarity >= min_sim:
                     reasons.append("RESUBMITTED")
                     details.append(("Matches", _describe(self.ids[e], self.times[e])))
-            if not reasons:
+            # The pipeline looks up first (record=0) and stores the photo only if
+            # the later stages also accept it. A lone call to 07 still records.
+            record = float(params.get("record", 1)) >= 0.5
+            if not reasons and record:
                 self.ids.append(uuid.uuid4().hex[:8])
                 self.times.append(time.time())
                 self.hashes = np.vstack([self.hashes, bits[None]])

@@ -130,6 +130,74 @@ String _detail(String body) {
   }
 }
 
+/// One server stage inside a pipeline response.
+class ServerStageReport {
+  ServerStageReport({
+    required this.id,
+    required this.state,
+    required this.reasons,
+    required this.score,
+  });
+
+  final String id;
+  final String state;
+  final List<String> reasons;
+  final double? score;
+
+  static ServerStageReport parse(Map<String, dynamic> json) =>
+      ServerStageReport(
+        id: json['id'] as String,
+        state: json['state'] as String,
+        reasons: (json['reasons'] as List?)?.cast<String>() ?? const [],
+        score: (json['score'] as num?)?.toDouble(),
+      );
+}
+
+/// Verdict of POST /v1/pipeline.
+class ServerPipelineReport {
+  ServerPipelineReport({
+    required this.passed,
+    required this.reasons,
+    required this.advisory,
+    required this.stoppedAt,
+    required this.stages,
+  });
+
+  final bool passed;
+  final List<String> reasons;
+  final List<String> advisory;
+  final String? stoppedAt;
+  final List<ServerStageReport> stages;
+
+  static ServerPipelineReport parse(Map<String, dynamic> json) =>
+      ServerPipelineReport(
+        passed: json['passed'] as bool,
+        reasons: (json['reasons'] as List).cast<String>(),
+        advisory: (json['advisory'] as List?)?.cast<String>() ?? const [],
+        stoppedAt: json['stopped_at'] as String?,
+        stages: [
+          for (final stage in json['stages'] as List)
+            ServerStageReport.parse(Map<String, dynamic>.from(stage as Map)),
+        ],
+      );
+}
+
+/// Runs the server half of the pipeline. [skip] lists stages switched off.
+Future<ServerPipelineReport> runServerPipeline(
+  List<int> jpeg, {
+  required Set<String> skip,
+}) async {
+  final query = <String, String>{};
+  if (skip.isNotEmpty) query['skip'] = (skip.toList()..sort()).join(',');
+  final json = await _send(
+    'POST',
+    ServerSettings.endpoint('/v1/pipeline', query.isEmpty ? null : query),
+    body: jpeg,
+    timeout: const Duration(minutes: 3),
+  );
+  return ServerPipelineReport.parse(Map<String, dynamic>.from(json as Map));
+}
+
 /// Health check: the approach ids the server offers, e.g. "06, 07, 08, 09".
 Future<String> pingServer() async {
   final health = await _send(

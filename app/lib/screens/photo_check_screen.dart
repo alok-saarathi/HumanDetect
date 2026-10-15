@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/check.dart';
@@ -15,9 +15,13 @@ import 'tunables_sheet.dart';
 /// Camera screen shared by the photo-based approaches (01-04).
 /// A photo comes from the shutter, or from the gallery when the check accepts it.
 class PhotoCheckScreen extends StatefulWidget {
-  const PhotoCheckScreen({super.key, required this.check});
+  const PhotoCheckScreen({super.key, required this.check, this.onCaptured});
 
   final PhotoCheck check;
+
+  /// When set, the photo is handed back and this screen does not run [check].
+  /// The pipeline uses it to take a still, then run the later stages itself.
+  final void Function(CapturedPhoto photo)? onCaptured;
 
   @override
   State<PhotoCheckScreen> createState() => _PhotoCheckScreenState();
@@ -168,11 +172,9 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
     required bool frontCamera,
   }) async {
     final watch = Stopwatch()..start();
-    // compute() sends a top-level function plus the bytes. A closure written
-    // inside this method also captures this State, and its Future is not sendable.
-    final decoded = await compute(
-      source == PhotoSource.gallery ? _decodeEncoded : _decodeJpeg,
+    final decoded = await decodePhotoInBackground(
       bytes,
+      gallery: source == PhotoSource.gallery,
     );
     watch.stop();
     final photo = CapturedPhoto(
@@ -183,6 +185,10 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
       frontCamera: frontCamera,
       decodeTime: watch.elapsed,
     );
+    if (widget.onCaptured != null) {
+      widget.onCaptured!(photo);
+      return;
+    }
     final result = await widget.check.check(photo);
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -201,9 +207,8 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen>
 
   void _showFailure(Object e) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Check failed: $e')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('Check failed: $e')));
   }
 
   @override
@@ -357,23 +362,4 @@ class _ShutterBar extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Runs in a background isolate: JPEG -> upright RGB plus a small preview for display.
-({RgbImage image, ({Uint8List rgba, int width, int height}) preview})
-_decodeJpeg(Uint8List jpeg) => _decodeWith(jpeg, RgbImage.fromJpeg);
-
-/// Same as [_decodeJpeg], for gallery files that may be PNG, WebP, GIF or BMP.
-({RgbImage image, ({Uint8List rgba, int width, int height}) preview})
-_decodeEncoded(Uint8List bytes) => _decodeWith(bytes, RgbImage.fromEncoded);
-
-({RgbImage image, ({Uint8List rgba, int width, int height}) preview})
-_decodeWith(Uint8List bytes, RgbImage Function(Uint8List) decode) {
-  final image = decode(bytes);
-  var w = 0, h = 0;
-  final rgba = image.previewRgba(900, (pw, ph) {
-    w = pw;
-    h = ph;
-  });
-  return (image: image, preview: (rgba: rgba, width: w, height: h));
 }

@@ -633,4 +633,59 @@ const approachDetails = <String, ApproachDetails>{
       'approaches/09-open-vlm-benchmark/vlm_judge.py',
     ],
   ),
+  '15': ApproachDetails(
+    id: '15',
+    title: 'Pipeline',
+    question:
+        'Did this photo pass the cheap checks first, and the slow judge last?',
+    steps: [
+      'Choose Capture or Upload. Capture is a photo taken in the app. Upload is a gallery file.',
+      'Capture runs 05 (blink and head turn; BlazeFace here also covers face detection), then 03 (live session, real phone, GPS), then 04 (blur, glare, contrast, moiré, EXIF), then 02 (TinyCLIP).',
+      'Upload skips 05 and 03 and starts at 04, then 02. There is no live face and no session to prove.',
+      'The first phone failure stops the run and asks for a retake. The photo is not sent to the server.',
+      'If the phone passes, the server runs 08 (one clear person), then 07 (already submitted?), then 06 (face, and not a screen or a painting), then 09 (SmolVLM2, the final judge).',
+      '06 is weak on its own, so a failure there is kept as a note. It does not reject the photo unless a later hard step also fails. 09 decides when it runs.',
+      'Each step has a switch. A switched-off step is skipped. Approaches 10–14 are not in this pipeline.',
+    ],
+    components: [
+      Component(
+        'Phone stages 05, 03, 04, 02',
+        'own code',
+        'this repo',
+        'The same checks as the individual tiles, run in order.',
+      ),
+      Component(
+        'Server stages 08, 07, 06, 09',
+        'own code',
+        'this repo',
+        'POST /v1/pipeline. Models stay the ones already used by those tiles.',
+      ),
+    ],
+    thresholds: [
+      ('Each step', 'Uses that step\'s own defaults'),
+      ('06', 'A note, not a hard reject'),
+    ],
+    catches: [
+      'Capture: a print or a still cannot blink and turn (05), and a gallery file cannot pass 03.',
+      'Both paths: blur, glare, moiré (04) and an obvious non-person (02) stop before the server.',
+      'Server: no person (08), a reused photo (07), and the VLM\'s verdict (09).',
+    ],
+    misses: [
+      '08 does not see prints and screens. 06 is too weak to reject alone. 09 is slow and cautious about some real people.',
+      'An upload cannot prove the person is here now.',
+    ],
+    verified: [
+      'Server pipeline tests with stand-in checks: a hard failure stops the rest, 06 does not reject alone, and a photo is stored for duplicate search only after the pipeline accepts it.',
+      'The phone\'s stage order is unit-tested for both paths and for switches.',
+    ],
+    limitations: [
+      '10–14 stay out until there is a labeled dataset.',
+      'Switches and the diagram are for the lab. A modified app can still skip a phone check; the server stages are the ones a modified app cannot skip.',
+    ],
+    code: [
+      'app/lib/approaches/a15_pipeline/',
+      'server/humandetect_server/pipeline.py',
+      'approaches/15-hybrid-pipeline/',
+    ],
+  ),
 };

@@ -2,7 +2,6 @@
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:humandetect_app/approaches/a04_forensics/forensics.dart';
 import 'package:humandetect_app/core/image_ops.dart';
@@ -20,10 +19,7 @@ void main() {
           ..b = 90;
       }
       final image = RgbImage.fromEncoded(img.encodePng(tiny));
-      final signals = await compute(
-        computeSignals,
-        image,
-      ); // as ForensicsCheck runs it
+      final signals = await signalsInBackground(image);
       expect(
         signals.moire,
         greaterThan(0),
@@ -38,12 +34,12 @@ void main() {
     },
   );
 
-  // The 0.1.0 shutter crash: an inline closure handed to Isolate.run/compute inside a
-  // State method captured `this`, which can't be sent to another isolate. Background
-  // work must take a top-level function and its data, e.g. compute(decode, bytes).
-  test('no inline closures are sent to background isolates', () {
+  // The shutter crash: Flutter inlines compute/Isolate.run into the calling
+  // State method, so the closure sent to the isolate includes `this` and its
+  // Future. Background work must use Isolate.spawn with a top-level entry.
+  test('no compute or Isolate.run calls from app code', () {
     final offenders = <String>[];
-    final pattern = RegExp(r'(Isolate\.run|compute)\(\s*(\(|[a-z_]\w*\s*=>)');
+    final pattern = RegExp(r'\b(Isolate\.run|compute)\s*\(');
     for (final f in Directory(
       'lib',
     ).listSync(recursive: true).whereType<File>()) {
@@ -57,7 +53,7 @@ void main() {
     expect(
       offenders,
       isEmpty,
-      reason: 'Pass a top-level function instead of a closure',
+      reason: 'Use Isolate.spawn from a top-level entry, not compute or Isolate.run',
     );
   });
 }

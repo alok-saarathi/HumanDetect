@@ -1,6 +1,7 @@
 // Image helpers shared by the approaches. Each function mirrors a Python reference
 // (named in its comment) so laptop and phone results come from identical math.
 
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -61,6 +62,60 @@ class RgbImage {
     }
     return out;
   }
+}
+
+typedef DecodedPhoto = ({
+  RgbImage image,
+  ({Uint8List rgba, int width, int height}) preview,
+});
+
+/// Decodes off the UI isolate.
+///
+/// Do not call [compute] or [Isolate.run] from a State method. Flutter inlines
+/// `compute`, so the closure is built inside that method and sends the State,
+/// including any [Future] it holds.
+@pragma('vm:never-inline')
+Future<DecodedPhoto> decodePhotoInBackground(
+  Uint8List bytes, {
+  required bool gallery,
+}) async {
+  final port = ReceivePort();
+  try {
+    await Isolate.spawn(_decodePhotoEntry, (port.sendPort, bytes, gallery));
+    final result = await port.first;
+    if (result is String) throw Exception(result);
+    return result as DecodedPhoto;
+  } finally {
+    port.close();
+  }
+}
+
+void _decodePhotoEntry((SendPort, Uint8List, bool) message) {
+  final (send, bytes, gallery) = message;
+  try {
+    send.send(gallery ? _decodeEncoded(bytes) : _decodeJpeg(bytes));
+  } catch (e) {
+    send.send(e.toString());
+  }
+}
+
+DecodedPhoto _decodeJpeg(Uint8List jpeg) =>
+    _decodePhoto(jpeg, RgbImage.fromJpeg);
+
+DecodedPhoto _decodeEncoded(Uint8List bytes) =>
+    _decodePhoto(bytes, RgbImage.fromEncoded);
+
+DecodedPhoto _decodePhoto(
+  Uint8List bytes,
+  RgbImage Function(Uint8List) decode,
+) {
+  final image = decode(bytes);
+  var w = 0, h = 0;
+  final rgba = image.previewRgba(900, (pw, ph) {
+    w = pw;
+    h = ph;
+  });
+  return (image: image, preview: (rgba: rgba, width: w, height: h));
 }
 
 /// Plain bilinear resize with half-pixel centers and no antialiasing (OpenCV

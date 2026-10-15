@@ -145,7 +145,7 @@ Full plan: [dataset/README.md](dataset/README.md).
 - [ ] **14 · Fine-tune a lightweight classifier (all fake types)** · `Stage 0 · Not started` · [folder](approaches/14-fine-tune-classifier/)
 
 **Final**
-- [ ] **15 · Hybrid tiered pipeline (target architecture)** · `Stage 0 · Not started` · [folder](approaches/15-hybrid-pipeline/)
+- [ ] **15 · Hybrid tiered pipeline (target architecture)** · `Stage 2 · Prototype in the lab app and POST /v1/pipeline` · [folder](approaches/15-hybrid-pipeline/)
 
 **Why this order**
 - **01 and 02** need no training and no server. Each runs in the phone build with one model file.
@@ -244,7 +244,7 @@ Full plan: [dataset/README.md](dataset/README.md).
 - [ ] Verdict
 
 ### 15 · Hybrid tiered pipeline
-- [ ] Pick the components from the earlier verdicts
+- [x] Order for the lab: capture is 05 → 03 → 04 → 02, upload starts at 04 → 02, server is 08 → 07 → 06 → 09 (06 is a note, not a hard reject). 10–14 stay out.
 - [ ] Integrate and run end to end on the eval set; flavor `a15`
 - [ ] **Shadow mode** in production: log decisions without blocking, and compare with ops review
 - [ ] Enforce, with a clear "retake" message for the user
@@ -258,7 +258,7 @@ The app lives in [`app/`](app/README.md). **Lab 0.2.0:** adds a Tier 2 section w
   - **Details** on each tile (and ⓘ on each camera screen): how the approach works step by step, its components and licenses, thresholds, what it catches and misses, how it was checked, limitations and code paths.
   - **Thresholds** are adjustable live from each camera screen.
 - **Version** `0.<tier>.<iteration>`: `0.1.x` is the Tier 1 lab. This replaced the earlier plan of one Android flavor per approach.
-- **Tests:** 47 Flutter tests and 10 server tests. Dart matches the Python references on synthetic inputs; the liveness state machine, the gallery-source rules and the Details pages are covered too.
+- **Tests:** Flutter tests cover the phone checks, gallery rules, pipeline order and the Details pages. Server tests cover the API, including the pipeline, without downloading models.
 - **Still to add:** a batch-eval screen (run a check over a folder on the phone, export results CSV) once the eval set exists.
 
 **Open source only:** all Flutter packages must be MIT, BSD or Apache. Unused permissions that plugins merge in (microphone, storage, phone state) are stripped.
@@ -304,6 +304,7 @@ The results CSV format and metrics are in [`evaluation/README.md`](evaluation/RE
 | 2026-10-15 | 09 | `num2words` (LGPL) accepted as a server-side exception | used unmodified on our own server, never shipped in the app |
 | 2026-10-14 | 01 | BlazeFace short-range with our own decoder; YuNet/Haar deferred | decoder matches mediapipe; extra detectors only if BlazeFace underperforms on our eval set |
 | 2026-10-14 | app | Gallery is a valid still-photo input for 01, 02 and 04. 03 and 05 stay camera-only. 04's EXIF clock is not a hard fail on a gallery file | a real customer photo may be shot in-app or chosen from the gallery; a file cannot prove it was taken just now |
+| 2026-10-15 | 15 | Lab pipeline: phone stops at the first failure and does not upload it; server runs 08, 07, 06, 09 with 06 advisory | capture can prove a live person; an upload cannot, so it starts at the rules |
 
 ---
 

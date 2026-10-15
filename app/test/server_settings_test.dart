@@ -9,7 +9,7 @@ Widget app(Future<String> Function() ping) =>
 
 /// A tall window so the whole home screen is built (the grid is lazy).
 void tallScreen(WidgetTester tester) {
-  tester.view.physicalSize = const Size(1080, 4800);
+  tester.view.physicalSize = const Size(1080, 12000);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
 }

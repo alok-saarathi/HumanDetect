@@ -85,7 +85,7 @@ The app asks for the Mac's address the first time it opens.
 
 ## Using it
 
-- **Home:** 9 tiles (5 on-device, 4 server). Each shows its number, what it checks, which fake types it should catch, and a **Details** button.
+- **Home:** a **Pipeline** row (approach 15), then 9 tiles (5 on-device, 4 server). The pipeline runs a capture as blink → live check → rules → server, and an upload as rules → server. Each step has a switch, and the screen draws the order. A phone failure is not sent to the server. Each tile shows what it checks, which fake types it should catch, and a **Details** button.
 - **Photo tiles (01–04):**
   - Camera screen: the back camera by default, with a switch button. Tiles 01, 02 and 04 also have a gallery button (Android photo picker, one image, no storage permission). Tile 03 does not: a gallery file cannot pass a live-session check.
   - Press the shutter, or pick a gallery photo, to see the result: PASS/FAIL, the score, the reasons in plain words, the photo with face boxes and keypoints (01), the details behind the verdict, and timings.

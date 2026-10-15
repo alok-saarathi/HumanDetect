@@ -50,6 +50,7 @@ def client(monkeypatch):
 def test_health_lists_approaches(client):
     body = client.get("/v1/health").json()
     assert body["ok"] and set(body["approaches"]) == {"06", "07", "08", "09"}
+    assert body["pipeline"] == ["08", "07", "06", "09"]
 
 
 def test_check_returns_result_json(client):
@@ -110,6 +111,101 @@ def make_duplicates(tmp_path):
 
 def textured(seed):
     return Image.fromarray(np.random.default_rng(seed).integers(0, 255, (96, 96, 3), dtype=np.uint8))
+
+
+def test_record_zero_does_not_store(tmp_path):
+    check = make_duplicates(tmp_path)
+    photo = textured(3)
+    assert check.check(photo, {"record": 0}).passed
+    assert check.check(photo, {"record": 0}).passed  # not stored, so not a duplicate yet
+    assert check.check(photo, {"record": 1}).passed
+    again = check.check(photo, {})
+    assert not again.passed and again.reasons == ["DUPLICATE"]
+
+
+class _Scripted:
+    def __init__(self, approach_id, passed, reasons=None):
+        self.id = approach_id
+        self.title = approach_id
+        self.score_label = "scripted"
+        self.tunables = []
+        self.passed = passed
+        self.reasons = list(reasons or ([] if passed else ["NO"]))
+        self.calls = []
+
+    def load(self):
+        pass
+
+    def check(self, image, params):
+        self.calls.append(dict(params))
+        return Result(self.passed, 0.4, list(self.reasons), [("id", self.id)])
+
+
+def test_pipeline_stops_at_the_first_hard_failure(client, monkeypatch):
+    scripts = {
+        "08": _Scripted("08", False, ["NO_PERSON"]),
+        "07": _Scripted("07", True),
+        "06": _Scripted("06", True),
+        "09": _Scripted("09", True),
+    }
+    monkeypatch.setattr(registry, "get", lambda approach_id: scripts[approach_id])
+    body = client.post("/v1/pipeline", content=jpeg()).json()
+    assert body["passed"] is False
+    assert body["stopped_at"] == "08"
+    assert body["reasons"] == ["NO_PERSON"]
+    assert scripts["08"].calls and scripts["07"].calls == []
+    assert scripts["09"].calls == []
+    states = {stage["id"]: stage["state"] for stage in body["stages"]}
+    assert states == {"08": "failed", "07": "not_reached", "06": "not_reached", "09": "not_reached"}
+
+
+def test_pipeline_keeps_06_as_a_note_and_09_decides(client, monkeypatch):
+    scripts = {
+        "08": _Scripted("08", True),
+        "07": _Scripted("07", True),
+        "06": _Scripted("06", False, ["RECAPTURE"]),
+        "09": _Scripted("09", True),
+    }
+    monkeypatch.setattr(registry, "get", lambda approach_id: scripts[approach_id])
+    body = client.post("/v1/pipeline?skip=07", content=jpeg()).json()
+    assert body["passed"] is True
+    assert body["advisory"] == ["RECAPTURE"]
+    assert body["reasons"] == []
+    assert scripts["07"].calls == []
+    assert scripts["06"].calls and scripts["09"].calls
+    # 07 was skipped, so nothing is recorded.
+    assert all(call.get("record") != 1 for call in scripts["07"].calls)
+
+
+def test_pipeline_records_a_photo_only_after_it_passes(client, monkeypatch):
+    scripts = {
+        "08": _Scripted("08", True),
+        "07": _Scripted("07", True),
+        "06": _Scripted("06", True),
+        "09": _Scripted("09", False, ["NOT_REAL"]),
+    }
+    monkeypatch.setattr(registry, "get", lambda approach_id: scripts[approach_id])
+    body = client.post("/v1/pipeline", content=jpeg()).json()
+    assert body["passed"] is False and body["stopped_at"] == "09"
+    # Lookup only: the failing final judge must not store the photo.
+    assert scripts["07"].calls == [{"record": 0.0}]
+
+
+def test_pipeline_stores_when_every_hard_stage_passes(client, monkeypatch):
+    scripts = {
+        "08": _Scripted("08", True),
+        "07": _Scripted("07", True),
+        "06": _Scripted("06", True),
+        "09": _Scripted("09", True),
+    }
+    monkeypatch.setattr(registry, "get", lambda approach_id: scripts[approach_id])
+    body = client.post("/v1/pipeline", content=jpeg()).json()
+    assert body["passed"] is True
+    assert [call.get("record") for call in scripts["07"].calls] == [0.0, 1.0]
+
+
+def test_pipeline_rejects_an_unknown_skip(client):
+    assert client.post("/v1/pipeline?skip=01", content=jpeg()).status_code == 400
 
 
 def test_duplicate_flow(tmp_path):

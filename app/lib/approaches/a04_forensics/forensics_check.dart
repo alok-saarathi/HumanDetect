@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+
 import 'package:exif/exif.dart';
 
 import '../../core/check.dart';
@@ -64,7 +65,7 @@ class ForensicsCheck extends PhotoCheck {
   Future<CheckResult> check(CapturedPhoto photo) async {
     final watch = Stopwatch()..start();
     final image = photo.image;
-    final s = await compute(computeSignals, image);
+    final s = await signalsInBackground(image);
     // The exif package reads JPEG markers. A gallery PNG, WebP, GIF or BMP has
     // none; missing metadata is shown and, for a gallery file, is not a failure.
     final exif = _isJpeg(photo.jpeg)
@@ -175,9 +176,8 @@ class ForensicsCheck extends PhotoCheck {
 
   static DateTime? _parseExifTime(String? raw) {
     // EXIF format "YYYY:MM:DD HH:MM:SS", local time.
-    final m = RegExp(
-      r'^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})',
-    ).firstMatch(raw ?? '');
+    final m = RegExp(r'^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})')
+        .firstMatch(raw ?? '');
     if (m == null) return null;
     final p = [for (var i = 1; i <= 6; i++) int.parse(m.group(i)!)];
     return DateTime(p[0], p[1], p[2], p[3], p[4], p[5]);

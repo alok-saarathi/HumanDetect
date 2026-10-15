@@ -33,9 +33,10 @@ uv run --group models --group server uvicorn humandetect_server.app:app --app-di
 
 | Endpoint | |
 |---|---|
-| `GET /v1/health` | `{ok, approaches}` |
+| `GET /v1/health` | `{ok, approaches, pipeline}` |
 | `GET /v1/approaches` | per approach: `id`, `title`, `score_label`, `tunables[{key,label,min,max,default,decimals}]` |
 | `POST /v1/check/{id}?<tunable>=<value>` | body = the image bytes. Returns `{passed, score, reasons[], details[[label,value]], marks[{box:[x,y,w,h],label}], latency_ms}` |
+| `POST /v1/pipeline?skip=06,09` | same body. Runs 08 → 07 → 06 → 09. 06 is a note, not a hard reject. A photo is added to the duplicate index only if the pipeline accepts it. `skip` leaves stages out. |
 | `POST /v1/approaches/07/reset` | empties the duplicate index (lab use) |
 
 Errors: 400 (empty body or bad parameter), 401 (token), 404 (unknown approach), 413 (over 25 MB), 415 (not an image).

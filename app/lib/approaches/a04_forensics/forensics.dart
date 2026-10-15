@@ -1,6 +1,7 @@
 // Recapture and metadata forensics: hand-written signals, no model. Mirrors
 // approaches/04-metadata-forensics/forensics.py. Pure Dart, safe to run in an isolate.
 
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -22,6 +23,28 @@ class ForensicSignals {
   final double contrast; // 99th minus 1st luma percentile
   final double
   moire; // mean of the strongest spectrum peaks over the per-ring median
+}
+
+@pragma('vm:never-inline')
+Future<ForensicSignals> signalsInBackground(RgbImage image) async {
+  final port = ReceivePort();
+  try {
+    await Isolate.spawn(_signalsEntry, (port.sendPort, image));
+    final result = await port.first;
+    if (result is String) throw Exception(result);
+    return result as ForensicSignals;
+  } finally {
+    port.close();
+  }
+}
+
+void _signalsEntry((SendPort, RgbImage) message) {
+  final (send, image) = message;
+  try {
+    send.send(computeSignals(image));
+  } catch (e) {
+    send.send(e.toString());
+  }
 }
 
 ForensicSignals computeSignals(RgbImage image) {

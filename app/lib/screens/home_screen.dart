@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../approaches/a15_pipeline/pipeline_screen.dart';
 import '../approaches/approach_details.dart';
 import '../approaches/registry.dart';
 import '../approaches/server/server_check.dart';
@@ -96,6 +97,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Capture integrity (03) and active liveness (05) use the camera only.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+            sliver: SliverToBoxAdapter(
+                child: Card.filled(
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  visualDensity: VisualDensity.compact,
+                  leading: const Icon(Icons.account_tree_outlined),
+                  title: const Text('15 · Pipeline'),
+                  subtitle: const Text(
+                    'Two paths. Switches skip a step.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PipelineScreen(),
+                    ),
+                  ),
                 ),
               ),
             ),

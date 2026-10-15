@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/check.dart';
@@ -18,7 +17,11 @@ import 'liveness_session.dart';
 /// Approach 05: live video. The person must blink and turn their head on request;
 /// a printout or a still photo on a screen can't follow random instructions.
 class ActiveLivenessScreen extends StatefulWidget {
-  const ActiveLivenessScreen({super.key});
+  const ActiveLivenessScreen({super.key, this.handBack = false});
+
+  /// Pop with the photo and verdict instead of opening the result page.
+  /// The pipeline continues from there, and does not continue when this fails.
+  final bool handBack;
 
   @override
   State<ActiveLivenessScreen> createState() => _ActiveLivenessScreenState();
@@ -243,7 +246,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
       final jpeg = await file.readAsBytes();
       await File(file.path).delete();
       final watch = Stopwatch()..start();
-      final decoded = await compute(_decode, jpeg);
+      final decoded = await decodePhotoInBackground(jpeg, gallery: false);
       watch.stop();
       final photo = CapturedPhoto(
         jpeg: jpeg,
@@ -255,6 +258,10 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
       );
       final result = _resultOf(session, elapsed);
       if (!mounted) return;
+      if (widget.handBack) {
+        Navigator.of(context).pop((photo: photo, result: result));
+        return;
+      }
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ResultScreen(
@@ -268,9 +275,8 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not finish: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not finish: $e')));
       }
     } finally {
       if (mounted) setState(() => _session = null);
@@ -526,16 +532,4 @@ class _FacePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FacePainter old) => old.box != box;
-}
-
-({RgbImage image, ({Uint8List rgba, int width, int height}) preview}) _decode(
-  Uint8List jpeg,
-) {
-  final image = RgbImage.fromJpeg(jpeg);
-  var w = 0, h = 0;
-  final rgba = image.previewRgba(900, (pw, ph) {
-    w = pw;
-    h = ph;
-  });
-  return (image: image, preview: (rgba: rgba, width: w, height: h));
 }
