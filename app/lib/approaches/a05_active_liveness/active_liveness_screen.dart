@@ -78,7 +78,6 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
   String _hint = 'Put your face in the box';
   int _sensorOrientation = 0; // of the camera the running check streams from
   FrameObservation? _last;
-  Rect? _faceBox;
   int _frames = 0;
   DateTime? _streamStart;
 
@@ -218,7 +217,6 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
       final FrameObservation obs;
       if (faces.isEmpty) {
         obs = const FrameObservation(faceCount: 0);
-        _faceBox = null;
       } else {
         final face = faces.first;
         final mesh = _mesh!.run(rgb, face);
@@ -238,7 +236,6 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
           ear: ear,
           yaw: yaw,
         );
-        _faceBox = Rect.fromLTWH(face.x, face.y, face.w, face.h);
       }
       final cue = judgeAlignment(
         obs,
@@ -407,7 +404,6 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
                             controller,
                             child: CustomPaint(
                               painter: _FacePainter(
-                                face: _faceBox,
                                 aligned: _aligned,
                                 showGuide: session == null,
                               ),
@@ -568,51 +564,32 @@ class _DebugLine extends StatelessWidget {
 }
 
 class _FacePainter extends CustomPainter {
-  _FacePainter({
-    required this.face,
-    required this.aligned,
-    required this.showGuide,
-  });
+  _FacePainter({required this.aligned, required this.showGuide});
 
-  final Rect? face;
   final bool aligned;
   final bool showGuide;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final color = aligned ? Colors.greenAccent : Colors.redAccent;
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    if (showGuide) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTRB(
-            alignGuide.left * size.width,
-            alignGuide.top * size.height,
-            alignGuide.right * size.width,
-            alignGuide.bottom * size.height,
-          ),
-          const Radius.circular(24),
+    if (!showGuide) return;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(
+          alignGuide.left * size.width,
+          alignGuide.top * size.height,
+          alignGuide.right * size.width,
+          alignGuide.bottom * size.height,
         ),
-        stroke,
-      );
-    }
-    final b = face;
-    if (b == null) return;
-    canvas.drawRect(
-      Rect.fromLTRB(
-        b.left * size.width,
-        b.top * size.height,
-        b.right * size.width,
-        b.bottom * size.height,
+        const Radius.circular(24),
       ),
-      stroke,
+      Paint()
+        ..color = aligned ? Colors.greenAccent : Colors.redAccent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
     );
   }
 
   @override
   bool shouldRepaint(_FacePainter old) =>
-      old.face != face || old.aligned != aligned || old.showGuide != showGuide;
+      old.aligned != aligned || old.showGuide != showGuide;
 }
