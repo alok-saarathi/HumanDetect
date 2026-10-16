@@ -27,6 +27,8 @@ We measure those gaps anyway, so later approaches have a baseline to beat.
 | 01b | **YuNet** (OpenCV Zoo) | Python; Flutter through ONNX Runtime only if it clearly beats 01a | MIT |
 | 01c | **Haar cascade** (OpenCV) | Python only, as a floor baseline | Apache-2.0 / BSD |
 
+The production check in Pravesh uses this same float16 file with only the confidence and size cutoffs (0.6 and 4%). Dominance and yaw stay lab rules. Phone, server, and APK size: [PRAVESH_FACE_CHECK.md](../../PRAVESH_FACE_CHECK.md).
+
 **Why BlazeFace first:**
 - It's the model family Google's closed ML Kit is built on, but released under Apache-2.0.
 - We run the raw `.tflite` file with our own decoding code, written once in Python and once in Dart. The laptop numbers and phone numbers then come from identical logic.

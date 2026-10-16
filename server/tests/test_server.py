@@ -51,6 +51,7 @@ def test_health_lists_approaches(client):
     body = client.get("/v1/health").json()
     assert body["ok"] and set(body["approaches"]) == {"06", "07", "08", "09"}
     assert body["pipeline"] == ["08", "07", "06", "09"]
+    assert body["final_capture"] is True
 
 
 def test_check_returns_result_json(client):
@@ -227,6 +228,60 @@ def test_duplicate_index_survives_restart_and_reset(tmp_path):
 
 
 # --- approach 08 geometry ---------------------------------------------------------------
+
+class _Face:
+    def __init__(self, score, box):
+        self.score = score
+        self.box = box
+
+
+class _FakePresence:
+    def __init__(self, faces):
+        self.faces = faces
+        self.params = None
+
+    def check(self, image, params):
+        from humandetect_server.final_capture import judge_presence
+
+        self.params = params
+        return judge_presence(self.faces, params.get("min_confidence", 0.6), params.get("min_face_area", 0.04))
+
+
+def test_final_capture_describes_itself(client):
+    body = client.get("/v1/final-capture").json()
+    assert body["id"] == "final-capture"
+    assert body["question"].startswith("Is a person")
+    assert {t["key"] for t in body["tunables"]} == {"min_confidence", "min_face_area"}
+
+
+def test_final_capture_passes_a_visible_face(client, monkeypatch):
+    from humandetect_server import final_capture
+
+    monkeypatch.setattr(final_capture, "get_checker", lambda: _FakePresence([_Face(0.91, (0.2, 0.2, 0.4, 0.5))]))
+    body = client.post("/v1/final-capture", content=jpeg()).json()
+    assert body["passed"] is True
+    assert body["score"] == 0.91
+    assert body["reasons"] == []
+    assert body["marks"][0]["label"] == "0.91"
+
+
+def test_final_capture_rejects_no_face_and_a_tiny_face(client, monkeypatch):
+    from humandetect_server import final_capture
+    from humandetect_server.final_capture import judge_presence
+
+    assert judge_presence([], 0.6, 0.04).reasons == ["NO_FACE"]
+    assert judge_presence([_Face(0.2, (0, 0, 0.5, 0.5))], 0.6, 0.04).reasons == ["LOW_CONFIDENCE"]
+    tiny = judge_presence([_Face(0.9, (0, 0, 0.1, 0.1))], 0.6, 0.04)
+    assert tiny.reasons == ["FACE_TOO_SMALL"] and tiny.passed is False
+    # A second face does not fail the photo.
+    two = judge_presence([_Face(0.9, (0, 0, 0.4, 0.4)), _Face(0.8, (0.5, 0, 0.4, 0.4))], 0.6, 0.04)
+    assert two.passed is True
+
+    monkeypatch.setattr(final_capture, "get_checker", lambda: _FakePresence([]))
+    assert client.post("/v1/final-capture", content=jpeg()).json()["reasons"] == ["NO_FACE"]
+    assert client.post("/v1/final-capture", content=b"").status_code == 400
+    assert client.post("/v1/final-capture?min_confidence=abc", content=jpeg()).status_code == 400
+
 
 def test_inside_share():
     sys.path.insert(0, str(ROOT / "approaches" / "08-deep-detectors"))

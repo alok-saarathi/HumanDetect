@@ -13,6 +13,7 @@ Everything here is open and license-clean (MIT, Apache-2.0, BSD, CC0/CC BY): see
 | **Run the server on my Mac and test with a phone on the same Wi-Fi** | **[SERVER_SETUP.md, Part A](SERVER_SETUP.md#part-a--your-mac-as-the-server-start-here)**: `server/start_mac.sh` |
 | Deploy the server on a dedicated machine | [SERVER_SETUP.md, Part B](SERVER_SETUP.md#part-b--deploying-on-a-dedicated-server); API in [server/README.md](server/README.md) |
 | Understand one approach | `approaches/<NN>-…/README.md` (what, how, findings) or the **Details** button in the app |
+| See the applicant-photo check wired into Pravesh | [PRAVESH_FACE_CHECK.md](PRAVESH_FACE_CHECK.md): BlazeFace on the phone and the server, float16, and the APK size |
 | Build the dataset and the shared scoring | [dataset/README.md](dataset/README.md), [evaluation/README.md](evaluation/README.md) |
 | Check what we may use | [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) |
 

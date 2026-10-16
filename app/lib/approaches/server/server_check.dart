@@ -198,6 +198,17 @@ Future<ServerPipelineReport> runServerPipeline(
   return ServerPipelineReport.parse(Map<String, dynamic>.from(json as Map));
 }
 
+/// Production check: BlazeFace on the server. Same JSON shape as the lab checks.
+Future<CheckResult> runFinalCapture(List<int> jpeg) async {
+  final json = await _send(
+    'POST',
+    ServerSettings.endpoint('/v1/final-capture'),
+    body: jpeg,
+    timeout: const Duration(seconds: 60),
+  );
+  return parseServerResult(Map<String, dynamic>.from(json as Map));
+}
+
 /// Health check: the approach ids the server offers, e.g. "06, 07, 08, 09".
 Future<String> pingServer() async {
   final health = await _send(

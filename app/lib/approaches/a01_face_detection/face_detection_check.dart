@@ -6,7 +6,7 @@ import 'face_rules.dart';
 
 /// Approach 01: is there one clear, frontal, big-enough face in the photo?
 class FaceDetectionCheck extends PhotoCheck {
-  late final BlazeFace _detector;
+  BlazeFace? _detector;
   final _confidence = Tunable(
     label: 'Min confidence',
     min: 0.5,
@@ -48,13 +48,15 @@ class FaceDetectionCheck extends PhotoCheck {
   List<Tunable> get tunables => [_confidence, _area, _dominance, _yaw];
 
   @override
-  Future<void> prepare() async => _detector = await BlazeFace.load();
+  Future<void> prepare() async => _detector ??= await BlazeFace.load();
 
   @override
   Future<CheckResult> check(CapturedPhoto photo) async {
+    final detector = _detector;
+    if (detector == null) throw StateError('BlazeFace is not loaded.');
     final watch = Stopwatch()..start();
     final image = photo.image;
-    final faces = _detector.detect(image.rgb, image.width, image.height);
+    final faces = detector.detect(image.rgb, image.width, image.height);
     final verdict = judgeFaces(
       faces,
       image.width / image.height,

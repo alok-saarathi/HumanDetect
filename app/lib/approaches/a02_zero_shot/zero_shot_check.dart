@@ -149,8 +149,8 @@ ZeroShotVerdict judgeEmbedding(
 }
 
 class ZeroShotCheck extends PhotoCheck {
-  late final Interpreter _encoder;
-  late final PromptSet _prompts;
+  Interpreter? _encoder;
+  PromptSet? _prompts;
   final _threshold = Tunable(
     label: 'Min "genuine" probability',
     min: 0.2,
@@ -172,8 +172,10 @@ class ZeroShotCheck extends PhotoCheck {
 
   @override
   Future<void> prepare() async {
-    _encoder = await ModelStore.load(ModelAssets.tinyClip);
-    _prompts = PromptSet.fromJson(
+    // The pipeline calls this on every photo. A late final can be set once;
+    // the second photo threw LateInitializationError.
+    _encoder ??= await ModelStore.load(ModelAssets.tinyClip);
+    _prompts ??= PromptSet.fromJson(
       jsonDecode(await rootBundle.loadString(ModelAssets.tinyClipPrompts))
           as Map<String, dynamic>,
     );
@@ -181,13 +183,21 @@ class ZeroShotCheck extends PhotoCheck {
 
   @override
   Future<CheckResult> check(CapturedPhoto photo) async {
+    final encoder = _encoder;
+    final prompts = _prompts;
+    if (encoder == null || prompts == null) {
+      throw StateError('TinyCLIP is not loaded.');
+    }
     final watch = Stopwatch()..start();
     final input = clipPreprocess(photo.image);
-    _encoder
-      ..setFloatInput(0, input)
-      ..invoke();
-    final embedding = _encoder.floatOutputAt(0);
-    final v = judgeEmbedding(embedding, _prompts, _threshold.value);
+    encoder.setFloatInput(0, input);
+    try {
+      encoder.invoke();
+    } on StateError catch (e) {
+      throw StateError('TinyCLIP could not score this photo (${e.message}).');
+    }
+    final embedding = encoder.floatOutputAt(0);
+    final v = judgeEmbedding(embedding, prompts, _threshold.value);
     watch.stop();
     final ranked = v.bucketScores.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -204,9 +214,9 @@ class ZeroShotCheck extends PhotoCheck {
           ),
         (
           'Prompts',
-          'version ${_prompts.version}, ${_prompts.texts.length} prompts',
+          'version ${prompts.version}, ${prompts.texts.length} prompts',
         ),
-        ('Model', _prompts.model.split('@').first.split('/').last),
+        ('Model', prompts.model.split('@').first.split('/').last),
       ],
     );
   }

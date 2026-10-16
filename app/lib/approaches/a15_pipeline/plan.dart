@@ -1,7 +1,8 @@
 // Which steps the lab pipeline runs, and in what order.
 //
-// Capture (photo taken in the app): 05 → 03 → 04 → 02, then the server.
-// Upload: 05 and 03 do not exist; start at 04 → 02, then the server.
+// Capture (photo taken in the app): shutter, then 01 → 03 → 04 → 02, then the server.
+// 01 is one still photo through BlazeFace, not the live blink-and-turn camera.
+// Upload: 03 does not apply; start at 01 → 04 → 02, then the server.
 // Server: 08 → 07 → 06 → 09. 06 is a note, not a hard reject.
 // A switch turns a step off. 10–14 are not in this pipeline.
 
@@ -33,7 +34,7 @@ class FlowStage {
   final String blurb;
   final bool onPhone;
 
-  /// Blink and the live-capture check. An upload never runs these.
+  /// The live-session check. An upload never runs this.
   final bool captureOnly;
 
   /// A failure here is reported and the pipeline continues.
@@ -42,11 +43,11 @@ class FlowStage {
 
 const flowStages = <FlowStage>[
   FlowStage(
-    id: '05',
-    title: 'Blink and head turn',
-    blurb: 'BlazeFace + Face Mesh. This also covers face detection.',
+    id: '01',
+    title: 'Face in the photo',
+    blurb: 'BlazeFace on the still. Click the shutter, then the check runs.',
     onPhone: true,
-    captureOnly: true,
+    captureOnly: false,
     advisory: false,
   ),
   FlowStage(
@@ -107,7 +108,7 @@ const flowStages = <FlowStage>[
   ),
 ];
 
-const phoneOrder = ['05', '03', '04', '02'];
+const phoneOrder = ['01', '03', '04', '02'];
 const serverOrder = ['08', '07', '06', '09'];
 
 bool stageEnabled(Map<String, bool> enabled, String id) => enabled[id] ?? true;
@@ -116,7 +117,10 @@ bool stageEnabled(Map<String, bool> enabled, String id) => enabled[id] ?? true;
 List<String> phoneSteps(PipelinePath path, Map<String, bool> enabled) {
   final ids = path == PipelinePath.capture
       ? phoneOrder
-      : phoneOrder.where((id) => id != '05' && id != '03');
+      : phoneOrder.where((id) {
+          final stage = flowStages.firstWhere((s) => s.id == id);
+          return !stage.captureOnly;
+        });
   return [
     for (final id in ids)
       if (stageEnabled(enabled, id)) id,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../approaches/a15_pipeline/pipeline_screen.dart';
+import '../approaches/final_capture/final_capture_screen.dart';
 import '../approaches/approach_details.dart';
 import '../approaches/registry.dart';
 import '../approaches/server/server_check.dart';
@@ -89,6 +90,31 @@ class _HomeScreenState extends State<HomeScreen> {
       body: CustomScrollView(
         slivers: [
           SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+            sliver: SliverToBoxAdapter(
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                color: theme.colorScheme.primaryContainer,
+                child: ListTile(
+                  leading: Icon(
+                    Icons.photo_camera_front_outlined,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                  title: const Text('Final capture'),
+                  subtitle: const Text(
+                    'A face on this phone, then the same check on the server.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const FinalCaptureScreen(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             sliver: SliverToBoxAdapter(
               child: Text(
@@ -150,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(16),
             sliver: SliverToBoxAdapter(
               child: Text(
-                'Lab build for testing only. Photos stay in memory and are never saved or uploaded.',
+                'Lab tiles keep a photo in memory. Final capture sends it to your server after this phone finds a face.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.outline,
                 ),

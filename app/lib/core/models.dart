@@ -24,12 +24,22 @@ abstract final class ModelStore {
 }
 
 extension FloatTensors on Interpreter {
-  /// Copies [values] into input tensor [index] (sizes must match exactly).
-  void setFloatInput(int index, Float32List values) =>
-      getInputTensor(index).data = values.buffer.asUint8List(
-        values.offsetInBytes,
-        values.lengthInBytes,
+  /// Copies [values] into input tensor [index]. Uses the copy API: writing the
+  /// tensor pointer in place makes [Interpreter.invoke] fail on device
+  /// ("Bad state: failed precondition").
+  void setFloatInput(int index, Float32List values) {
+    final tensor = getInputTensor(index);
+    final bytes = values.buffer.asUint8List(
+      values.offsetInBytes,
+      values.lengthInBytes,
+    );
+    if (tensor.numBytes() != bytes.length) {
+      throw StateError(
+        'Model input is ${tensor.numBytes()} bytes, this buffer is ${bytes.length}.',
       );
+    }
+    tensor.setTo(bytes);
+  }
 
   /// Copies the output tensor named [name] out as floats.
   Float32List floatOutput(String name) {

@@ -36,7 +36,8 @@ class Mark:
     label: str = ""
 
     def json(self) -> dict:
-        return {"box": [round(v, 5) for v in self.box], "label": self.label}
+        # float() first: BlazeFace boxes are numpy scalars, and round() keeps that type.
+        return {"box": [round(float(v), 5) for v in self.box], "label": self.label}
 
 
 @dataclass

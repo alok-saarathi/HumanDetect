@@ -8,6 +8,8 @@ Endpoints
     GET  /v1/approaches                  ids, titles, score meaning, tunables
     POST /v1/check/{id}?<tunable>=<v>    body = the image file bytes (JPEG, PNG, WebP, ...)
     POST /v1/pipeline?skip=06,09         body = the image. Stages 08 → 07 → 06 → 09.
+    GET  /v1/final-capture               what the production check accepts
+    POST /v1/final-capture?<tunable>=<v> body = the image. BlazeFace: is a person visible?
     POST /v1/approaches/07/reset         empty the duplicate index (lab use)
 
 Images are judged in memory and never written to disk. Set HUMANDETECT_TOKEN to require
@@ -24,7 +26,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from . import pipeline, registry
+from . import final_capture, pipeline, registry
 
 MAX_BYTES = 25 * 1024 * 1024
 
@@ -53,6 +55,7 @@ def health() -> dict:
         "ok": True,
         "approaches": list(registry.APPROACHES),
         "pipeline": [approach_id for approach_id, _ in pipeline.ORDER],
+        "final_capture": True,
     }
 
 
@@ -113,6 +116,38 @@ async def run_server_pipeline(request: Request) -> dict:
 
     def run() -> dict:
         return pipeline.run_pipeline(image, skip, params)
+
+    return await run_in_threadpool(run)
+
+
+@app.get("/v1/final-capture")
+def final_capture_info() -> dict:
+    """The production check: a visible face. Does not load the model."""
+    return final_capture.describe()
+
+
+@app.post("/v1/final-capture")
+async def final_capture_check(request: Request) -> dict:
+    """BlazeFace on the server. A gallery file, a screen, and a print all pass
+    when a face is visible. `min_confidence` and `min_face_area` are optional."""
+    _authorize(request)
+    data = await request.body()
+    if not data:
+        raise HTTPException(400, "empty body: send the image bytes")
+    if len(data) > MAX_BYTES:
+        raise HTTPException(413, "image too large")
+    params: dict[str, float] = {}
+    for key, value in request.query_params.items():
+        try:
+            params[key] = float(value)
+        except ValueError:
+            raise HTTPException(400, f"parameter {key} must be a number") from None
+    image = decode_image(data)
+
+    def run() -> dict:
+        start = time.perf_counter()
+        result = final_capture.get_checker().check(image, params)
+        return result.json((time.perf_counter() - start) * 1000)
 
     return await run_in_threadpool(run)
 

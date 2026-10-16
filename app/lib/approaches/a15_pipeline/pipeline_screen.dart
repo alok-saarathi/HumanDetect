@@ -5,10 +5,10 @@ import '../../core/gallery_pick.dart';
 import '../../core/image_ops.dart';
 import '../../screens/approach_detail_screen.dart';
 import '../../screens/photo_check_screen.dart';
+import '../a01_face_detection/face_detection_check.dart';
 import '../a02_zero_shot/zero_shot_check.dart';
 import '../a03_capture_integrity/capture_integrity_check.dart';
 import '../a04_forensics/forensics_check.dart';
-import '../a05_active_liveness/active_liveness_screen.dart';
 import '../approach_details.dart';
 import '../server/server_check.dart';
 import 'flow_diagram.dart';
@@ -28,6 +28,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
   PipelinePath _path = PipelinePath.capture;
   final _enabled = {for (final stage in flowStages) stage.id: true};
   final _live = <String, NodeState>{};
+  final _faces = FaceDetectionCheck();
   final _forensics = ForensicsCheck();
   final _clip = ZeroShotCheck();
   final _integrity = CaptureIntegrityCheck();
@@ -83,22 +84,6 @@ class _PipelineScreenState extends State<PipelineScreen> {
 
   Future<CapturedPhoto?> _capture() async {
     _integrity.startSession();
-    final steps = phoneSteps(_path, _enabled);
-    if (steps.contains('05')) {
-      final handed = await Navigator.of(context)
-          .push<({CapturedPhoto photo, CheckResult result})>(
-            MaterialPageRoute(
-              builder: (_) => const ActiveLivenessScreen(handBack: true),
-            ),
-          );
-      if (handed == null) return null;
-      if (!handed.result.passed) {
-        _failAt('05', handed.result.reasons);
-        return null;
-      }
-      setState(() => _live['05'] = NodeState.passed);
-      return handed.photo;
-    }
     return Navigator.of(context).push<CapturedPhoto>(
       MaterialPageRoute(
         builder: (context) => PhotoCheckScreen(
@@ -126,10 +111,8 @@ class _PipelineScreenState extends State<PipelineScreen> {
   }
 
   Future<void> _run(CapturedPhoto photo) async {
-    final steps = phoneSteps(
-      _path,
-      _enabled,
-    ).where((id) => id != '05').toList();
+    final steps = phoneSteps(_path, _enabled);
+    if (steps.contains('01')) await _faces.prepare();
     if (steps.contains('02')) await _clip.prepare();
     for (final id in steps) {
       setState(() => _live[id] = NodeState.running);
@@ -174,6 +157,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
   }
 
   PhotoCheck _phoneCheck(String id) => switch (id) {
+    '01' => _faces,
     '03' => _integrity,
     '04' => _forensics,
     '02' => _clip,
@@ -204,7 +188,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
   }
 
   bool _after(String id, String failed) {
-    const order = ['05', '03', '04', '02', '08', '07', '06', '09'];
+    const order = ['01', '03', '04', '02', '08', '07', '06', '09'];
     return order.indexOf(id) > order.indexOf(failed);
   }
 
@@ -265,8 +249,8 @@ class _PipelineScreenState extends State<PipelineScreen> {
           const SizedBox(height: 8),
           Text(
             capture
-                ? 'Taken in the app: blink and head turn, then the live-capture check, then the rules. A failure stops the run.'
-                : 'Chosen from the gallery: blink and the live-capture check are skipped. The rules run first.',
+                ? 'Taken in the app: tap the shutter, then BlazeFace, the live-capture check, and the rules. A failure stops the run.'
+                : 'Chosen from the gallery: BlazeFace runs on the file. The live-capture check is skipped. The rules run next.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -342,7 +326,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
   }
 }
 
-/// Camera screen used when blink (05) is switched off. It only returns the photo.
+/// Camera screen for the pipeline. It only returns the photo; BlazeFace runs after.
 class _ShutterOnly extends PhotoCheck {
   @override
   String get id => '15';

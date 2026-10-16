@@ -38,6 +38,8 @@ uv run --group models --group server uvicorn humandetect_server.app:app --app-di
 | `POST /v1/check/{id}?<tunable>=<value>` | body = the image bytes. Returns `{passed, score, reasons[], details[[label,value]], marks[{box:[x,y,w,h],label}], latency_ms}` |
 | `POST /v1/pipeline?skip=06,09` | same body. Runs 08 → 07 → 06 → 09. 06 is a note, not a hard reject. A photo is added to the duplicate index only if the pipeline accepts it. `skip` leaves stages out. |
 | `POST /v1/approaches/07/reset` | empties the duplicate index (lab use) |
+| `GET /v1/final-capture` | the production face check: question, and `min_confidence` / `min_face_area` |
+| `POST /v1/final-capture` | body = the image bytes. BlazeFace short-range. Same pass rule as the Pravesh APK. See [PRAVESH_FACE_CHECK.md](../PRAVESH_FACE_CHECK.md) |
 
 Errors: 400 (empty body or bad parameter), 401 (token), 404 (unknown approach), 413 (over 25 MB), 415 (not an image).
 ```

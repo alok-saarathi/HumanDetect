@@ -60,6 +60,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull); // no overflow
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
     expect(find.text('Details'), findsWidgets);
   });
 }
