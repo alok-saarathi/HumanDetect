@@ -40,6 +40,57 @@ void main() {
   test('a centered face large enough turns the box green', () {
     final cue = judgeAlignment(sample());
     expect(cue.aligned, isTrue);
-    expect(cue.hint, 'Hold still. You can start the check.');
+    expect(cue.hint, 'Stay aligned');
   });
+
+  test(
+    'a blink while aligned enables capture, and leaving first clears it',
+    () {
+      final blink = HeldBlink();
+      final start = DateTime(2026);
+      for (var i = 0; i < 10; i++) {
+        blink.update(
+          aligned: true,
+          ear: 0.3,
+          now: start.add(Duration(milliseconds: 50 * i)),
+        );
+      }
+      expect(blink.ready, isFalse);
+      expect(blink.baselineEar, isNotNull);
+      blink.update(
+        aligned: false,
+        ear: 0.3,
+        now: start.add(const Duration(seconds: 1)),
+      );
+      expect(blink.baselineEar, isNull);
+
+      final again = start.add(const Duration(seconds: 2));
+      for (var i = 0; i < 10; i++) {
+        blink.update(
+          aligned: true,
+          ear: 0.3,
+          now: again.add(Duration(milliseconds: 50 * i)),
+        );
+      }
+      blink.update(
+        aligned: true,
+        ear: 0.1,
+        now: again.add(const Duration(milliseconds: 600)),
+      );
+      expect(blink.ready, isFalse);
+      blink.update(
+        aligned: true,
+        ear: 0.3,
+        now: again.add(const Duration(milliseconds: 700)),
+      );
+      expect(blink.ready, isTrue);
+
+      blink.update(
+        aligned: false,
+        ear: null,
+        now: again.add(const Duration(seconds: 2)),
+      );
+      expect(blink.ready, isTrue);
+    },
+  );
 }

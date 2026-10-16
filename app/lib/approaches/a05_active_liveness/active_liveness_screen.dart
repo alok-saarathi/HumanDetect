@@ -15,8 +15,8 @@ import 'face_mesh.dart';
 import 'frame_convert.dart';
 import 'liveness_session.dart';
 
-/// Approach 05: live video. The person must blink and turn their head on request;
-/// a printout or a still photo on a screen can't follow random instructions.
+/// Approach 05: live video. The face stays in the center box, and one blink
+/// while it is there unlocks a single capture.
 class ActiveLivenessScreen extends StatefulWidget {
   const ActiveLivenessScreen({super.key, this.handBack = false});
 
@@ -35,23 +35,10 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
   final _settings = LivenessSettings();
   late final _tunables = [
     Tunable(
-      label: 'Turn threshold (nose offset, 0..1)',
-      min: 0.15,
-      max: 0.7,
-      initial: _settings.turnThreshold,
-    ),
-    Tunable(
       label: 'Eyes closed below × open level',
       min: 0.3,
       max: 0.9,
       initial: _settings.closeRatio,
-    ),
-    Tunable(
-      label: 'Seconds per challenge',
-      min: 3,
-      max: 15,
-      initial: 7,
-      decimals: 0,
     ),
     Tunable(
       label: 'Min face area (share of frame)',
@@ -69,9 +56,9 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
   FaceMesh? _mesh;
   String? _error;
 
-  LivenessSession? _session;
+  final _blink = HeldBlink();
   bool _processing = false;
-  bool _finishing = false;
+  bool _capturing = false;
   bool _starting = false;
   bool _streaming = false;
   bool _aligned = false;
@@ -103,19 +90,12 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive) {
       final controller = _controller;
-      if (controller == null || _finishing) return;
-      final cancelled = _session != null;
+      if (controller == null || _capturing) return;
       setState(() {
-        _session = null;
         _controller = null;
         _streaming = false;
       });
       controller.dispose();
-      if (cancelled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Check cancelled: the app was left.')),
-        );
-      }
     } else if (state == AppLifecycleState.resumed &&
         _controller == null &&
         _cameras.isNotEmpty) {
@@ -185,30 +165,8 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
     _streaming = true;
   }
 
-  void _applyTunables() {
-    _settings
-      ..turnThreshold = _tunables[0].value
-      ..closeRatio = _tunables[1].value
-      ..challengeTimeout = Duration(seconds: _tunables[2].value.round())
-      ..minFaceArea = _tunables[3].value;
-  }
-
-  Future<void> _startChallenge() async {
-    final controller = _controller;
-    if (controller == null || !_aligned) return;
-    _applyTunables();
-    _sensorOrientation = controller.description.sensorOrientation;
-    setState(() {
-      _session = LivenessSession(_settings);
-      _frames = 0;
-      _streamStart = DateTime.now();
-      _finishing = false;
-    });
-    await _ensureStream();
-  }
-
   void _onFrame(CameraImage frame) {
-    if (_processing || _finishing || _detector == null || _mesh == null) return;
+    if (_processing || _capturing || _detector == null || _mesh == null) return;
     _processing = true;
     try {
       final rgb = yuvToUprightRgb(frame, _sensorOrientation, mirror: _front);
@@ -239,33 +197,39 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
       }
       final cue = judgeAlignment(
         obs,
-        minFaceArea: _tunables[3].value,
+        minFaceArea: _tunables[1].value,
         maxYaw: _settings.maxStartYaw,
       );
+      _blink.update(
+        aligned: cue.aligned,
+        ear: obs.ear,
+        now: DateTime.now(),
+        closeRatio: _tunables[0].value,
+      );
       _aligned = cue.aligned;
-      _hint = cue.hint;
+      _hint = _blink.ready
+          ? 'You can capture.'
+          : cue.aligned
+          ? 'Stay aligned'
+          : cue.hint;
       _last = obs;
-      final session = _session;
-      if (session != null) {
-        _frames++;
-        session.update(obs, DateTime.now());
-        if (session.phase == LivenessPhase.passed ||
-            session.phase == LivenessPhase.failed) {
-          _finish();
-        }
-      }
+      _streamStart ??= DateTime.now();
+      _frames++;
       if (mounted) setState(() {});
     } finally {
       _processing = false;
     }
   }
 
-  Future<void> _finish() async {
-    if (_finishing) return;
-    _finishing = true;
-    final controller = _controller!;
-    final session = _session!;
-    final elapsed = DateTime.now().difference(_streamStart!);
+  Future<void> _capture() async {
+    if (_capturing || !_blink.ready) return;
+    _capturing = true;
+    final controller = _controller;
+    if (controller == null) {
+      _capturing = false;
+      return;
+    }
+    final elapsed = DateTime.now().difference(_streamStart ?? DateTime.now());
     try {
       if (_streaming) {
         await controller.stopImageStream();
@@ -286,7 +250,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
         frontCamera: _front,
         decodeTime: watch.elapsed,
       );
-      final result = _resultOf(session, elapsed);
+      final result = _resultOf(elapsed);
       if (!mounted) return;
       if (widget.handBack) {
         Navigator.of(context).pop((photo: photo, result: result));
@@ -296,7 +260,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
         MaterialPageRoute<void>(
           builder: (_) => ResultScreen(
             title: '05 · $_title',
-            scoreLabel: 'challenges completed',
+            scoreLabel: 'blink while aligned',
             photo: photo,
             preview: decoded.preview,
             result: result,
@@ -305,46 +269,36 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not finish: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not finish: $e')));
       }
     } finally {
+      _blink.reset();
+      _capturing = false;
       if (mounted) {
-        setState(() => _session = null);
+        setState(() {});
         await _ensureStream();
       }
     }
   }
 
-  CheckResult _resultOf(LivenessSession s, Duration elapsed) {
+  CheckResult _resultOf(Duration elapsed) {
     final fps =
         _frames / (elapsed.inMilliseconds / 1000).clamp(0.001, double.infinity);
+    final open = _blink.baselineEar;
+    final low = _blink.minEar;
     return CheckResult(
-      passed: s.phase == LivenessPhase.passed,
-      score: s.timeline.length / s.challenges.length,
-      reasons: [?s.failReason],
+      passed: true,
+      score: 1,
       latency: elapsed,
       details: [
-        for (final c in s.challenges)
-          (
-            c.selfie,
-            switch (s.timeline.where((t) => t.$1 == c)) {
-              final done when done.isNotEmpty =>
-                '✓ in ${(done.first.$2.inMilliseconds / 1000).toStringAsFixed(1)} s',
-              _ => '✗ not completed',
-            },
-          ),
-        if (s.baselineEar != null)
+        ('Blink while aligned', 'seen'),
+        if (open != null)
           (
             'Eye openness (open / lowest)',
-            '${s.baselineEar!.toStringAsFixed(3)} / '
-                '${s.minEar.isFinite ? s.minEar.toStringAsFixed(3) : '-'}',
+            '${open.toStringAsFixed(3)} / '
+                '${low.isFinite ? low.toStringAsFixed(3) : '-'}',
           ),
-        (
-          'Furthest turn left / right',
-          '${s.maxLeft.toStringAsFixed(2)} / ${s.maxRight.toStringAsFixed(2)}',
-        ),
         ('Frames analysed', '$_frames (${fps.toStringAsFixed(1)} per second)'),
       ],
     );
@@ -353,7 +307,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final session = _session;
+    final ready = _blink.ready;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -372,9 +326,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
           IconButton(
             tooltip: 'Thresholds',
             icon: const Icon(Icons.tune),
-            onPressed: session == null
-                ? () => showTunablesSheet(context, _title, _tunables)
-                : null,
+            onPressed: () => showTunablesSheet(context, _title, _tunables),
           ),
         ],
       ),
@@ -390,12 +342,7 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
             )
           : Column(
               children: [
-                _InstructionBar(
-                  session: session,
-                  agentMode: !_front,
-                  hint: _hint,
-                  aligned: _aligned,
-                ),
+                _InstructionBar(hint: _hint, aligned: _aligned, ready: ready),
                 Expanded(
                   child: Center(
                     child: controller == null || !controller.value.isInitialized
@@ -403,17 +350,13 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
                         : CameraPreview(
                             controller,
                             child: CustomPaint(
-                              painter: _FacePainter(
-                                aligned: _aligned,
-                                showGuide: session == null,
-                              ),
+                              painter: _FacePainter(aligned: _aligned),
                               size: Size.infinite,
                             ),
                           ),
                   ),
                 ),
-                if (session != null && _last != null)
-                  _DebugLine(_last!, session),
+                if (_last != null) _DebugLine(_last!, _blink.baselineEar),
                 SafeArea(
                   top: false,
                   child: Padding(
@@ -423,29 +366,22 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
                         Expanded(
                           child: FilledButton.icon(
                             onPressed:
-                                session == null &&
-                                    controller != null &&
-                                    _aligned
-                                ? _startChallenge
+                                controller != null && ready && !_capturing
+                                ? _capture
                                 : null,
-                            icon: const Icon(Icons.play_arrow),
-                            label: Text(
-                              session != null
-                                  ? 'Checking…'
-                                  : _aligned
-                                  ? 'Start check'
-                                  : 'Center your face',
-                            ),
+                            icon: const Icon(Icons.camera_alt),
+                            label: const Text('Capture'),
                           ),
                         ),
                         const SizedBox(width: 12),
                         IconButton.filledTonal(
                           tooltip: 'Switch camera',
-                          onPressed: session == null && _cameras.length > 1
+                          onPressed: !_capturing && _cameras.length > 1
                               ? () async {
                                   _lens = _front
                                       ? CameraLensDirection.back
                                       : CameraLensDirection.front;
+                                  _blink.reset();
                                   await _openCamera();
                                 }
                               : null,
@@ -463,31 +399,18 @@ class _ActiveLivenessScreenState extends State<ActiveLivenessScreen>
 
 class _InstructionBar extends StatelessWidget {
   const _InstructionBar({
-    required this.session,
-    required this.agentMode,
     required this.hint,
     required this.aligned,
+    required this.ready,
   });
 
-  final LivenessSession? session;
-  final bool agentMode;
   final String hint;
   final bool aligned;
+  final bool ready;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final s = session;
-    final String text;
-    if (s == null) {
-      text = hint;
-    } else if (s.phase == LivenessPhase.positioning) {
-      text = 'Face the camera and hold still…';
-    } else if (s.current != null) {
-      text = agentMode ? s.current!.agent : s.current!.selfie;
-    } else {
-      text = 'Done';
-    }
     return Container(
       width: double.infinity,
       color: theme.colorScheme.primaryContainer,
@@ -496,44 +419,23 @@ class _InstructionBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            text,
+            hint,
             style: theme.textTheme.titleLarge?.copyWith(
               color: theme.colorScheme.onPrimaryContainer,
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (s == null) ...[
-            const SizedBox(height: 4),
-            Text(
-              aligned
-                  ? 'The box is green. Start the check to capture.'
-                  : 'The box stays red until your face is in the center.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            ready
+                ? 'Capture is ready.'
+                : aligned
+                ? 'Stay in the box.'
+                : 'The box stays red until your face is in the center.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onPrimaryContainer,
             ),
-          ],
-          if (s != null) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              children: [
-                for (var i = 0; i < s.challenges.length; i++)
-                  Chip(
-                    visualDensity: VisualDensity.compact,
-                    avatar: Icon(
-                      i < s.index
-                          ? Icons.check_circle
-                          : (i == s.index
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked),
-                      size: 18,
-                    ),
-                    label: Text(s.challenges[i].name),
-                  ),
-              ],
-            ),
-          ],
+          ),
         ],
       ),
     );
@@ -541,19 +443,19 @@ class _InstructionBar extends StatelessWidget {
 }
 
 class _DebugLine extends StatelessWidget {
-  const _DebugLine(this.o, this.session);
+  const _DebugLine(this.o, this.baselineEar);
 
   final FrameObservation o;
-  final LivenessSession session;
+  final double? baselineEar;
 
   @override
   Widget build(BuildContext context) {
-    final base = session.baselineEar;
+    final base = baselineEar;
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Text(
         'faces ${o.faceCount} · eye ${o.ear?.toStringAsFixed(3) ?? '-'}'
-        '${base != null ? ' (open ${base.toStringAsFixed(3)})' : ''} · turn ${o.yaw?.toStringAsFixed(2) ?? '-'}',
+        '${base != null ? ' (open ${base.toStringAsFixed(3)})' : ''}',
         style: const TextStyle(
           color: Colors.white70,
           fontFeatures: [FontFeature.tabularFigures()],
@@ -564,14 +466,12 @@ class _DebugLine extends StatelessWidget {
 }
 
 class _FacePainter extends CustomPainter {
-  _FacePainter({required this.aligned, required this.showGuide});
+  _FacePainter({required this.aligned});
 
   final bool aligned;
-  final bool showGuide;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (!showGuide) return;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTRB(
@@ -590,6 +490,5 @@ class _FacePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_FacePainter old) =>
-      old.aligned != aligned || old.showGuide != showGuide;
+  bool shouldRepaint(_FacePainter old) => old.aligned != aligned;
 }

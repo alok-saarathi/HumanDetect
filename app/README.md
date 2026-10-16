@@ -6,7 +6,7 @@ One app with a grid of tiles, one tile per approach:
 
 It's a **test harness, not the production app**.
 
-**Version 0.2.3** (the lab) has two sections and a pipeline that runs them in order:
+**Version 0.2.4** (the lab) has two sections and a pipeline that runs them in order:
 - **Tier 1 (01–05):** no training, runs on the phone. Gallery upload is accepted on tiles 01, 02 and 04.
 - **Tier 2 (06–09):** the photo is sent to the HumanDetect server, which runs models too big for a phone. For testing, the server runs on your Mac and the phone is on the same Wi-Fi: see [`../SERVER_SETUP.md`](../SERVER_SETUP.md#part-a--your-mac-as-the-server-start-here).
 - **Pipeline (15):** a capture clicks the shutter, then BlazeFace, the live-session check, the rules, then TinyCLIP, and only then the server (08 → 07 → 06 → 09). An upload starts at BlazeFace. Each step has a switch. A phone failure is not sent to the server.
@@ -17,17 +17,17 @@ It's a **test harness, not the production app**.
 | 02 | Zero-shot | TinyCLIP ViT-39M/16 (MIT, int8) scored against 25 prompts in 5 buckets | F1, F5, part of F2/F3 |
 | 03 | Capture integrity | no model: session nonce, freshness, real device, GPS with mock check, signed receipt | F3, traceability |
 | 04 | Recapture forensics | no model: sharpness, glare, contrast, moiré spectrum, EXIF | part of F2, F3 |
-| 05 | Active liveness | live video: BlazeFace + Face Mesh V2 (Apache-2.0). A center box stays red until the face is centered, then turns green and the check can start. Then a random blink and head turn | F2 prints and screens, F1, F3 |
+| 05 | Active liveness | live video: BlazeFace + Face Mesh V2. A center box turns green when the face is lined up. One blink while it stays green unlocks a single Capture | F2 prints and screens, F1, F3 |
 
 **Open source only:** every package and model is listed with its license in [`../THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md).
 
 ## Install a ready build
 
-Download an APK from the repo's GitHub Releases (tag `lab-0.2.3`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
+Download an APK from the repo's GitHub Releases (tag `lab-0.2.4`). Install it on an Android phone (Android 7.0 or newer), allowing "install unknown apps" for the browser or file manager when asked.
 
-- `humandetect-lab-0.2.3-arm64-v8a.apk`: almost every phone from the last several years
-- `humandetect-lab-0.2.3-armeabi-v7a.apk`: older 32-bit phones
-- `humandetect-lab-0.2.3-universal.apk`: if unsure
+- `humandetect-lab-0.2.4-arm64-v8a.apk`: almost every phone from the last several years
+- `humandetect-lab-0.2.4-armeabi-v7a.apk`: older 32-bit phones
+- `humandetect-lab-0.2.4-universal.apk`: if unsure
 
 ## Build it yourself
 
@@ -63,13 +63,13 @@ Afterwards `app/assets/models/` holds:
 ### 3. Build and install
 ```
 cd app
-flutter build apk --release --no-tree-shake-icons --split-per-abi --build-name 0.2.3 --build-number 8
+flutter build apk --release --no-tree-shake-icons --split-per-abi --build-name 0.2.4 --build-number 9
 mkdir -p builds
-cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk builds/humandetect-lab-0.2.3-arm64-v8a.apk
-cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk builds/humandetect-lab-0.2.3-armeabi-v7a.apk
-flutter build apk --release --no-tree-shake-icons --build-name 0.2.3 --build-number 8
-cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.2.3-universal.apk
-adb install -r builds/humandetect-lab-0.2.3-arm64-v8a.apk      # or send the APK file to the phone
+cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk builds/humandetect-lab-0.2.4-arm64-v8a.apk
+cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk builds/humandetect-lab-0.2.4-armeabi-v7a.apk
+flutter build apk --release --no-tree-shake-icons --build-name 0.2.4 --build-number 9
+cp build/app/outputs/flutter-apk/app-release.apk builds/humandetect-lab-0.2.4-universal.apk
+adb install -r builds/humandetect-lab-0.2.4-arm64-v8a.apk      # or send the APK file to the phone
 ```
 - **`--no-tree-shake-icons`:** skips an icon-font step that once hung for 30 minutes on an Intel-only tool under Rosetta. The APK is slightly larger.
 - **Signing:** release builds are signed with the debug key, which is fine for testers, not for the Play Store.
@@ -94,12 +94,11 @@ The app asks for the Mac's address the first time it opens.
   - ⓘ opens the approach's Details page.
   - The tune button opens sliders for every threshold. Changes apply to the next photo, and reset when you leave the screen.
 - **05 Active liveness:**
-  - Camera only. A gallery photo cannot blink or turn, so there is no gallery button.
-  - A box in the center stays red until the face is centered, close enough, and looking ahead. It turns green, and only then does **Start check** enable.
-  - The check asks for a blink and a head turn to the left or right, in random order.
-  - **Back camera:** the person holding the phone reads the instructions out.
-  - **Front camera:** the person follows them on screen.
-  - A debug line shows eye openness and head turn live, which helps tune thresholds.
+  - Camera only. There is no gallery button and no head-turn step.
+  - A box in the center stays red until the face is centered, close enough, and looking ahead, then turns green. Capture stays off.
+  - While the box stays green, one blink is watched. The screen asks them to stay aligned.
+  - After that blink, **Capture** turns on. That tap takes the photo.
+  - A debug line shows eye openness, which helps tune the blink threshold.
 - **Privacy:** photos stay in memory. The camera's temp file and the gallery picker's temp file are deleted right after capture, and nothing is saved or uploaded.
 
 ## Code layout

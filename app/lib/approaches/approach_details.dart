@@ -318,15 +318,12 @@ const approachDetails = <String, ApproachDetails>{
   '05': ApproachDetails(
     id: '05',
     title: 'Active liveness',
-    question: 'Can the person in front of the camera blink and turn their head when asked?',
+    question: 'Did the person blink while their face stayed in the center of the frame?',
     steps: [
-      'Stream live video (720 × 480 frames). Each frame is turned upright using the camera\'s sensor orientation, and mirrored for the front camera.',
-      'BlazeFace (as in 01) finds the largest face.',
-      'Cut a square 1.5× the face box, resize to 256 × 256 and run Face Mesh: 478 face landmarks plus a "face present" score.',
-      'Two signals: eye openness (eyelid gap / eye width, both eyes) and head turn (where the nose sits between the cheek edges, −1 … 1).',
-      'Get ready: one face, ≥ 5 % of the frame, facing the camera, still for 0.7 s. Its eye openness becomes the "open" level.',
-      'Two challenges in random order: blink (eyes below 0.6× open, then back above 0.85×) and turn left or right (turn beyond 0.35 for 2 frames). 7 s each.',
-      'FAIL if the face disappears > 0.7 s, a second face stays in view, the face jumps > 25 % of the frame between frames (photo swapped in), or time runs out. A final photo is kept for the record.',
+      'Stream live video. Each frame is turned upright using the camera\'s sensor orientation, and mirrored for the front camera.',
+      'BlazeFace finds the largest face. A fixed box in the center of the preview stays red until that face is centered, large enough, and looking ahead, then turns green.',
+      'Face Mesh reads eye openness. While the box stays green, one blink (eyes close, then open) is watched. The screen asks them to stay aligned and does not ask for a head turn.',
+      'Leaving the box before that blink clears the blink progress. After the blink, Capture turns on. That tap takes the photo.',
     ],
     components: [
       Component(
